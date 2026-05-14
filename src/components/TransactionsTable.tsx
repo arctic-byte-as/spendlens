@@ -142,10 +142,14 @@ export default function TransactionsTable({ initialRows }: Props) {
             </tr>
           </thead>
           <tbody>
-            {paginatedRows.map((row) => (
-              <tr key={row.id}>
+            {paginatedRows.map((row) => {
+              const formattedDate = new Date(row.date).toLocaleDateString('nb-NO')
+              const labelTarget = row.description || row.merchant || `transaction on ${formattedDate}`
+
+              return (
+                <tr key={row.id}>
                 <td style={{ padding: '10px 12px', borderBottom: '1px solid var(--grid-line)', color: 'var(--muted)' }}>
-                  {new Date(row.date).toLocaleDateString('nb-NO')}
+                  {formattedDate}
                 </td>
                 <td style={{ padding: '10px 12px', borderBottom: '1px solid var(--grid-line)' }}>
                   {row.merchant || '—'}
@@ -169,9 +173,7 @@ export default function TransactionsTable({ initialRows }: Props) {
                 </td>
                 <td style={{ padding: '10px 12px', borderBottom: '1px solid var(--grid-line)' }}>
                   <select
-                    aria-label={row.description
-                      ? `Category for ${row.description}`
-                      : `Category for transaction on ${new Date(row.date).toLocaleDateString('nb-NO')}`}
+                    aria-label={`Category for ${labelTarget}`}
                     value={row.category || 'OTHER'}
                     onChange={(e) => updateCategory(row.id, e.target.value as Category)}
                     style={{
@@ -198,8 +200,9 @@ export default function TransactionsTable({ initialRows }: Props) {
                 }}>
                   {formatSignedAmount(row.amount, row.currency || 'NOK')}
                 </td>
-              </tr>
-            ))}
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
