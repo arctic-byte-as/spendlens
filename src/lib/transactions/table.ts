@@ -7,13 +7,14 @@ export type TransactionListItem = {
   description: string | null
   category: string | null
   amount: number
-  currency: string | null
+  currency: string
   is_recurring: boolean | null
 }
 
 export function formatSignedAmount(amount: number, currency: string) {
   const sign = amount > 0 ? '+' : amount < 0 ? '−' : ''
-  return `${sign}${Math.abs(amount).toLocaleString('nb-NO', {
+  const locale = currency === 'NOK' ? 'nb-NO' : 'en-US'
+  return `${sign}${Math.abs(amount).toLocaleString(locale, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })} ${currency}`

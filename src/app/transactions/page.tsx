@@ -3,6 +3,8 @@ import TransactionsTable from '@/components/TransactionsTable'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
+const MAX_TRANSACTIONS_PAGE_LOAD = 500
+
 export default async function TransactionsPage() {
   const supabase = createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -13,7 +15,7 @@ export default async function TransactionsPage() {
     .select('id, date, merchant, description, category, amount, currency, is_recurring')
     .eq('user_id', user.id)
     .order('date', { ascending: false })
-    .limit(500)
+    .limit(MAX_TRANSACTIONS_PAGE_LOAD)
 
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '40px' }}>

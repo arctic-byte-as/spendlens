@@ -198,7 +198,7 @@ export default function TransactionsTable({ initialRows }: Props) {
                   color: row.amount < 0 ? 'var(--prancing-horse)' : 'var(--positive)',
                   fontFamily: 'DM Mono, monospace',
                 }}>
-                  {formatSignedAmount(row.amount, row.currency || 'NOK')}
+                  {formatSignedAmount(row.amount, row.currency)}
                 </td>
                 </tr>
               )
