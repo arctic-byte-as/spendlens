@@ -114,7 +114,7 @@ export default function TransactionsTable({
     setBulkStatus('')
     setError('')
 
-    const ids = [...selectedIds]
+    const ids = Array.from(selectedIds)
     const response = await fetch('/api/transactions/bulk-categorise', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
