@@ -21,6 +21,17 @@ const rows: TransactionListItem[] = [
     currency: 'NOK',
     is_recurring: false,
   },
+  {
+    id: '3',
+    date: '2026-01-03',
+    merchant: null,
+    description: 'Unclassified',
+    category: null,
+    amount: -99,
+    currency: 'NOK',
+    is_recurring: false,
+    category_source: 'pending',
+  },
 ]
 
 describe('filterTransactions', () => {
@@ -32,6 +43,12 @@ describe('filterTransactions', () => {
     const result = filterTransactions(rows, 'kiwi', 'GROCERIES', false)
     expect(result).toHaveLength(1)
     expect(result[0].id).toBe('2')
+  })
+
+  it('filters uncategorised rows', () => {
+    const result = filterTransactions(rows, '', 'UNCATEGORISED', false)
+    expect(result).toHaveLength(1)
+    expect(result[0].id).toBe('3')
   })
 })
 

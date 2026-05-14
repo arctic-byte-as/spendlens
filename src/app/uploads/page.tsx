@@ -1,5 +1,6 @@
 import { createServerClient } from '@/lib/supabase/server'
 import Link from 'next/link'
+import UploadActions from '@/components/UploadActions'
 
 export default async function UploadsPage() {
   const supabase = createServerClient()
@@ -46,7 +47,7 @@ export default async function UploadsPage() {
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr>
-              {['DATE', 'FILENAME', 'ROWS', 'STATUS'].map(h => (
+              {['DATE', 'FILENAME', 'ROWS', 'STATUS', 'ACTIONS'].map(h => (
                 <th key={h} style={{ fontFamily: 'Orbitron, sans-serif', fontSize: '8px', letterSpacing: '0.15em', color: 'var(--muted)', padding: '10px 16px', textAlign: 'left', borderBottom: '1px solid var(--grid-line)' }}>
                   {h}
                 </th>
@@ -76,6 +77,9 @@ export default async function UploadsPage() {
                   }}>
                     {upload.status?.toUpperCase()}
                   </span>
+                </td>
+                <td style={{ padding: '12px 16px', borderBottom: '1px solid var(--grid-line)' }}>
+                  <UploadActions uploadId={upload.id} uploadStatus={upload.status} />
                 </td>
               </tr>
             ))}

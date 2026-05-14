@@ -36,9 +36,13 @@ export async function PATCH(
     return NextResponse.json({ error: 'Transaction not found' }, { status: 404 })
   }
 
+  const updatePayload = 'category' in payload
+    ? { ...payload, category_source: 'user', category_corrected_at: new Date().toISOString() }
+    : payload
+
   const { data: updated, error: updateError } = await supabase
     .from('transactions')
-    .update(payload)
+    .update(updatePayload)
     .eq('id', params.id)
     .eq('user_id', user.id)
     .select('id, category, notes')
@@ -50,4 +54,32 @@ export async function PATCH(
   }
 
   return NextResponse.json({ transaction: updated })
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const supabase = createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { data: deleted, error: deleteError } = await supabase
+    .from('transactions')
+    .delete()
+    .eq('id', params.id)
+    .eq('user_id', user.id)
+    .select('id')
+    .maybeSingle()
+
+  if (deleteError) {
+    console.error('Transaction delete failed:', deleteError)
+    return NextResponse.json({ error: 'Failed to delete transaction' }, { status: 500 })
+  }
+
+  if (!deleted) {
+    return NextResponse.json({ error: 'Transaction not found' }, { status: 404 })
+  }
+
+  return NextResponse.json({ success: true })
 }

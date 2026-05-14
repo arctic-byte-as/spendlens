@@ -4,7 +4,7 @@
 |---|---|
 | Status | Living document |
 | Last updated | 2026-05-14 |
-| Primary model | `claude-sonnet-4-20250514` |
+| Primary model | `ANTHROPIC_MODEL`, default `claude-sonnet-4-6` |
 
 ---
 
@@ -141,7 +141,7 @@ USING (user_id = auth.uid())
 
 ### Categorisation (`src/lib/ai/categorise.ts`)
 
-- Model: `claude-sonnet-4-20250514`
+- Model: configured by `ANTHROPIC_MODEL`; default `claude-sonnet-4-6`
 - Batch size: **50 transactions** (hard limit — do not increase)
 - Input: JSON array of `{ id, description, amount }`
 - Output: JSON array of `{ id, category, subcategory, merchant, is_recurring }`
@@ -149,7 +149,7 @@ USING (user_id = auth.uid())
 - Unknown categories normalised to `OTHER`
 
 **Category taxonomy** (uppercase):
-`HOUSING · TRANSPORT · FOOD & DRINK · GROCERIES · HEALTH · SUBSCRIPTIONS · SHOPPING · TRAVEL · SAVINGS & INVESTMENTS · INCOME · FEES · OTHER`
+`HOUSING · TRANSPORT · FOOD & DRINK · GROCERIES · HEALTH · SUBSCRIPTIONS · SHOPPING · TRAVEL · SAVINGS & INVESTMENTS · INCOME · CREDIT CARD · FEES · OTHER`
 
 ### Insights (`src/lib/ai/insights.ts`)
 

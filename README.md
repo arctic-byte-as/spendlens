@@ -17,7 +17,7 @@ SpendLens ingests CSV bank transaction exports, uses Claude AI to categorise spe
 
 - Magic-link sign-in — no passwords
 - Auto-detects DNB, Nordea, Sbanken, Sparebank 1 and generic CSV formats
-- AI categorisation (Claude `claude-sonnet-4-20250514`) batched at 50 transactions
+- AI categorisation (Claude model configured by `ANTHROPIC_MODEL`, default `claude-sonnet-4-6`) batched at 50 transactions
 - CSS-only category bar chart — zero chart library dependencies
 - Inline category correction and transaction notes
 - Full data isolation per user (Postgres RLS on every table)
@@ -67,6 +67,7 @@ Edit `.env.local`:
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 ANTHROPIC_API_KEY=your-anthropic-api-key
+ANTHROPIC_MODEL=claude-sonnet-4-6
 ```
 
 ### 3. Apply database migrations

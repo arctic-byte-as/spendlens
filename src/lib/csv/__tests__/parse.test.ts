@@ -16,6 +16,12 @@ describe('detectBankFormat', () => {
   it('detects Generic NO', () => {
     expect(detectBankFormat(['Dato', 'Beskrivelse', 'Beløp'])).toBe('GENERIC_NO')
   })
+  it('detects Generic NO with unaccented amount header', () => {
+    expect(detectBankFormat(['Dato', 'Beskrivelse', 'Belop'])).toBe('GENERIC_NO')
+  })
+  it('detects Nordea with booking date variant', () => {
+    expect(detectBankFormat(['Bokføringsdato', 'Betalingstype', 'Avsender', 'Belop'])).toBe('NORDEA')
+  })
   it('returns UNKNOWN for unrecognised headers', () => {
     expect(detectBankFormat(['Col1', 'Col2'])).toBe('UNKNOWN')
   })
@@ -54,6 +60,17 @@ describe('parseTransactions', () => {
     const mapping = getColumnMapping('GENERIC_EN')
     const txs = parseTransactions(csv, mapping)
     expect(txs).toHaveLength(2)
+    expect(txs[0].amount).toBe(-45)
+    expect(txs[1].amount).toBe(50000)
+  })
+
+  it('parses semicolon CSV with Norwegian header variants', () => {
+    const csv = 'Dato;Beskrivelse;Belop\n15.01.2024;Kaffe;-45,00\n16.01.2024;Lonn;50000,00'
+    const headers = getHeaders(csv)
+    const mapping = getColumnMapping(detectBankFormat(headers), headers)
+    const txs = parseTransactions(csv, mapping)
+    expect(txs).toHaveLength(2)
+    expect(txs[0].date).toBe('2024-01-15')
     expect(txs[0].amount).toBe(-45)
     expect(txs[1].amount).toBe(50000)
   })

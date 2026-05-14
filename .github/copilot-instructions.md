@@ -37,7 +37,7 @@ npm run lint      # ESLint
 - Transaction amounts: **negative = debit (spending), positive = credit (income)**. This is the DB convention — do not invert.
 - AI categorisation is batched in groups of **50 transactions**. Do not send the full set in a single prompt.
 - Strip account numbers and IBANs from transaction descriptions **client-side** before sending to the Claude API.
-- Categories (top-level, uppercase): `HOUSING · TRANSPORT · FOOD & DRINK · GROCERIES · HEALTH · SUBSCRIPTIONS · SHOPPING · TRAVEL · SAVINGS & INVESTMENTS · INCOME · FEES · OTHER`
+- Categories (top-level, uppercase): `HOUSING · TRANSPORT · FOOD & DRINK · GROCERIES · HEALTH · SUBSCRIPTIONS · SHOPPING · TRAVEL · SAVINGS & INVESTMENTS · INCOME · CREDIT CARD · FEES · OTHER`
 - The design system is **NASA Future + Ferrari Luce** — see `docs/technical-spec.md §2` for colour tokens and typography rules.
 
 ## Conventions
