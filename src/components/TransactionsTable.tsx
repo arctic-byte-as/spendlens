@@ -169,7 +169,9 @@ export default function TransactionsTable({ initialRows }: Props) {
                 </td>
                 <td style={{ padding: '10px 12px', borderBottom: '1px solid var(--grid-line)' }}>
                   <select
-                    aria-label={`Category for ${row.description || row.id}`}
+                    aria-label={row.description
+                      ? `Category for ${row.description}`
+                      : `Category for transaction on ${new Date(row.date).toLocaleDateString('nb-NO')}`}
                     value={row.category || 'OTHER'}
                     onChange={(e) => updateCategory(row.id, e.target.value as Category)}
                     style={{
