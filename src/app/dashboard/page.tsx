@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createServerClient } from '@/lib/supabase/server'
 import { formatSignedAmount } from '@/lib/transactions/table'
+import UpgradeButton from '@/components/UpgradeButton'
 
 const MAX_RECENT_TRANSACTIONS = 8
 
@@ -34,7 +35,7 @@ export default async function DashboardPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/')
 
-  const [{ data: transactions }, { data: uploads }, { data: insights }] = await Promise.all([
+  const [{ data: transactions }, { data: uploads }, { data: insights }, { data: profile }] = await Promise.all([
     supabase
       .from('transactions')
       .select('id, date, merchant, description, category, category_source, amount, currency')
@@ -53,10 +54,17 @@ export default async function DashboardPage() {
       .eq('user_id', user.id)
       .order('generated_at', { ascending: false })
       .limit(1),
+    supabase
+      .from('profiles')
+      .select('subscription_tier')
+      .eq('id', user.id)
+      .maybeSingle(),
   ])
 
   const rows = (transactions || []) as TransactionRow[]
   const doneUploads = (uploads || []).filter(upload => upload.status === 'done')
+  const isFreeTier = (profile?.subscription_tier ?? 'free') === 'free'
+  const trialUsed = doneUploads.length >= 1
   const latestTips = ((insights?.[0] as InsightRow | undefined)?.top_saving_tips || []).slice(0, 4)
   const currency = rows.find(row => row.currency)?.currency || 'NOK'
 
@@ -138,6 +146,15 @@ export default async function DashboardPage() {
         </Link>
       </div>
 
+      {isFreeTier && trialUsed && (
+        <div style={{ border: '1px solid var(--prancing-horse)', padding: '16px', marginBottom: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
+          <div style={{ fontSize: '12px', color: 'var(--carbon)' }}>
+            You&apos;ve used your free trial. Upgrade to Pro for unlimited uploads + savings insights.
+          </div>
+          <UpgradeButton />
+        </div>
+      )}
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '1px', background: 'var(--grid-line)', marginBottom: '40px' }}>
         {[
           ['SPEND', formatCurrency(totalSpend, currency || 'NOK')],
@@ -193,7 +210,14 @@ export default async function DashboardPage() {
 
         <section>
           <div style={{ ...panelTitle, marginBottom: '20px' }}>Saving Tips</div>
-          {latestTips.length === 0 ? (
+          {isFreeTier ? (
+            <div style={{ borderTop: '1px solid var(--grid-line)', paddingTop: '16px' }}>
+              <div style={{ color: 'var(--muted)', fontSize: '12px', lineHeight: 1.7, marginBottom: '14px' }}>
+                Savings insights are a Pro feature.
+              </div>
+              <UpgradeButton />
+            </div>
+          ) : latestTips.length === 0 ? (
             <div style={{ color: 'var(--muted)', fontSize: '12px', lineHeight: 1.7, borderTop: '1px solid var(--grid-line)', paddingTop: '16px' }}>
               Insights will appear after AI categorisation completes.
             </div>
