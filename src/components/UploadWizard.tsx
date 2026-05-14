@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
+import Papa from 'papaparse'
 import { detectBankFormat, getColumnMapping, getHeaders } from '@/lib/csv/parse'
 import type { BankFormat, ColumnMapping } from '@/lib/csv/parse'
 import ColumnMapper from './ColumnMapper'
@@ -39,17 +40,13 @@ export default function UploadWizard() {
     const colMap = getColumnMapping(format)
     setMapping(colMap)
 
-    // Build preview (first 5 rows)
-    const lines = text.split('\n').filter(l => l.trim())
-    const colNames = hdrs
-    const rows: Record<string, string>[] = []
-    for (let i = 1; i <= Math.min(5, lines.length - 1); i++) {
-      const vals = lines[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''))
-      const row: Record<string, string> = {}
-      colNames.forEach((col, idx) => { row[col] = vals[idx] || '' })
-      rows.push(row)
-    }
-    setPreview(rows)
+    // Build preview using Papa Parse (handles quoted fields with commas correctly)
+    const { data: previewData } = Papa.parse<Record<string, string>>(text, {
+      header: true,
+      preview: 5,
+      skipEmptyLines: true,
+    })
+    setPreview(previewData)
     setStep('map')
   }, [])
 

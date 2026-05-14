@@ -134,6 +134,7 @@ export function parseTransactions(csvText: string, mapping: ColumnMapping): Pars
       if (outVal.trim()) {
         amount = parseNorwegianAmount(outVal)
       } else if (inVal.trim()) {
+        // Inn på konto is always a credit — ensure positive
         amount = Math.abs(parseNorwegianAmount(inVal))
       }
     } else if (mapping.amount) {

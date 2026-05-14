@@ -72,21 +72,24 @@ export async function POST(
 
     // AI categorisation
     try {
-      const toCategrise = (insertedTxs || []).map((tx: { id: string; description: string | null; amount: number }) => ({
+      const toCategorise = (insertedTxs || []).map((tx: { id: string; description: string | null; amount: number }) => ({
         id: tx.id,
         description: tx.description || '',
         amount: tx.amount,
       }))
-      const categories = await categoriseTransactions(toCategrise)
+      const categories = await categoriseTransactions(toCategorise)
 
-      // Update transactions with categories
-      for (const result of categories) {
-        await supabase.from('transactions').update({
-          category: result.category,
-          subcategory: result.subcategory,
-          merchant: result.merchant,
-          is_recurring: result.is_recurring,
-        }).eq('id', result.id)
+      // Update transactions with categories — batch upsert to avoid N+1
+      const updateRows = categories.map(result => ({
+        id: result.id,
+        category: result.category,
+        subcategory: result.subcategory,
+        merchant: result.merchant,
+        is_recurring: result.is_recurring,
+      }))
+      const UPSERT_BATCH = 100
+      for (let i = 0; i < updateRows.length; i += UPSERT_BATCH) {
+        await supabase.from('transactions').upsert(updateRows.slice(i, i + UPSERT_BATCH))
       }
 
       // Generate insights from spending totals
