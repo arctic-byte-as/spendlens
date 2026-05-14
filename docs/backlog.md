@@ -174,3 +174,76 @@
 - 🟢 **CI pipeline** — GitHub Actions running `npm test` + `npm run build` on every push to `main`
 - 🟢 **Error monitoring** — Sentry free tier on the frontend
 - 🟢 **Uptime monitoring** — UptimeRobot or Cloudflare Health Check on the production URL
+
+---
+
+## Phase 6 — Monetisation
+*Goal: Stripe subscription billing live in production. Free-tier trial converts users to paid Pro. Hosting costs covered.*
+*Spec: `docs/payments.md`*
+
+---
+
+### Epic 6-A: Database & Schema
+
+- 🔴 **As the app, I want `profiles` to store Stripe billing state** so that subscription checks are fast and consistent.
+  - Migration `20260514010000_billing_columns.sql` adds: `stripe_customer_id`, `subscription_status` (`free | active | past_due | cancelled`), `subscription_tier` (`free | pro`), `subscription_ends_at`
+  - RLS unchanged (`USING (user_id = auth.uid())`)
+  - **AC:** Migration applies cleanly with no existing data loss.
+
+---
+
+### Epic 6-B: Stripe Integration
+
+- 🔴 **As a user, I want to pay for Pro via a Stripe Checkout page** so that my card details are handled securely by Stripe.
+  - `POST /api/billing/checkout` creates a Checkout Session (`mode: 'subscription'`, Pro price)
+  - Redirects user to Stripe hosted page; on success Stripe fires webhook
+  - **[TECH DEP]:** `STRIPE_SECRET_KEY`, `STRIPE_PRO_PRICE_ID` env vars must be set.
+
+- 🔴 **As the app, I want Stripe webhooks processed reliably** so that subscription state in Supabase stays accurate.
+  - `POST /api/webhooks/stripe` handles: `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_failed`
+  - Webhook signature verified via `stripe.webhooks.constructEvent` — reject unsigned requests with `400`
+  - Raw body passed to Stripe before any JSON parsing
+  - **[TECH DEP]:** `STRIPE_WEBHOOK_SECRET` env var. Local dev: Stripe CLI `stripe listen --forward-to localhost:3000/api/webhooks/stripe`.
+  - **AC:** Completing a test Checkout with card `4242 4242 4242 4242` sets `subscription_status = 'active'` in `profiles`.
+
+- 🟠 **As a user, I want to manage or cancel my subscription** without contacting support.
+  - `POST /api/billing/portal` creates a Stripe Billing Portal session, redirects user
+  - "MANAGE BILLING" link visible in top nav / settings when `subscription_status = 'active'`
+
+---
+
+### Epic 6-C: Subscription Gate
+
+- 🔴 **As the app, I want AI routes blocked for over-limit free-tier users** so that Claude API costs are controlled.
+  - `src/lib/billing/gate.ts` — reusable gate helper
+  - Free tier: 1 lifetime upload, max 1,000 transactions per upload
+  - `POST /api/process/[uploadId]` and `GET /api/insights/[uploadId]` call `gate()` before invoking Claude
+  - Insights route blocked entirely for free-tier users (returns `402 upgrade_required`)
+  - `past_due` subscriptions also blocked until payment resolves
+  - **AC:** A free-tier user attempting a second upload receives a `402` with `error: 'upgrade_required'`.
+
+---
+
+### Epic 6-D: UI / Upgrade Prompts
+
+- 🟠 **As a free-tier user who has used their trial, I want a clear upgrade prompt** so that I know how to unlock full access.
+  - Persistent banner on dashboard after trial upload is used
+  - Copy: *"You've used your free trial. Upgrade to Pro for unlimited uploads + savings insights."*
+  - CTA: `"UPGRADE — $8/MO"` → calls `/api/billing/checkout`
+
+- 🟠 **As a free-tier user, I want the upload wizard to warn me if my CSV exceeds 1,000 rows** before I confirm.
+  - Step 3 shows row count; if > 1,000 show inline warning with upgrade CTA
+  - Offer to import first 1,000 rows as a fallback without upgrading
+  - **AC:** Uploading a 1,500-row CSV on free tier shows the warning and does not process rows 1,001+.
+
+- 🟡 **As a free-tier user, I want to see that savings insights are a Pro feature** so that I understand the value of upgrading.
+  - Insights section on dashboard shows a blurred/locked placeholder with upgrade CTA when `subscription_tier = 'free'`
+
+---
+
+### Epic 6-E: Testing & Go-Live
+
+- 🟠 **Unit tests for `src/lib/billing/gate.ts`** — mock profile data covering all tier/status combinations
+- 🟠 **Integration test for `/api/webhooks/stripe`** — mock `stripe.webhooks.constructEvent`, cover all four event types and the invalid-signature rejection path
+- 🟡 **Switch to live Stripe keys** and run a real $8 end-to-end test before announcing to users
+- 🟡 **Add `STRIPE_*` env vars to Vercel** production and preview environments
