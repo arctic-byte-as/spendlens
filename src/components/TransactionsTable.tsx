@@ -31,8 +31,8 @@ export default function TransactionsTable({ initialRows }: Props) {
   const paginatedRows = filteredRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   useEffect(() => {
-    if (page > totalPages) setPage(totalPages)
-  }, [page, totalPages])
+    setPage(current => (current > totalPages ? totalPages : current))
+  }, [totalPages])
 
   async function updateCategory(id: string, nextCategory: Category) {
     setError('')

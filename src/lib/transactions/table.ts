@@ -11,9 +11,8 @@ export type TransactionListItem = {
   is_recurring: boolean | null
 }
 
-export function formatSignedAmount(amount: number, currency: string) {
+export function formatSignedAmount(amount: number, currency: string, locale = 'nb-NO') {
   const sign = amount > 0 ? '+' : amount < 0 ? '−' : ''
-  const locale = currency === 'NOK' ? 'nb-NO' : 'en-US'
   return `${sign}${Math.abs(amount).toLocaleString(locale, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,

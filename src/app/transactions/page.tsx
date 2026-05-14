@@ -30,7 +30,7 @@ export default async function TransactionsPage() {
           marginBottom: '28px',
         }}
       >
-        Transactions
+        TRANSACTIONS
       </div>
 
       {!rows || rows.length === 0 ? (
