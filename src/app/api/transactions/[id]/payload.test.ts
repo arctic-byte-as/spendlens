@@ -20,6 +20,7 @@ describe('parseTransactionPatchPayload', () => {
   })
 
   it('rejects invalid category values', () => {
-    expect(() => parseTransactionPatchPayload({ category: 'COFFEE' })).toThrow('Invalid category')
+    // Custom category names are now allowed (e.g. 'COFFEE'), so test a name with illegal characters
+    expect(() => parseTransactionPatchPayload({ category: 'COFFEE!' })).toThrow('Invalid category')
   })
 })

@@ -1,3 +1,4 @@
+jest.mock('stripe')
 import { handleStripeWebhookEvent } from './webhook'
 
 describe('handleStripeWebhookEvent', () => {
