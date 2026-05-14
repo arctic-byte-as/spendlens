@@ -1,14 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { CATEGORIES, type Category, isCanonicalCategory } from '@/lib/transactions/categories'
 
 const BATCH_SIZE = 50
-
-export const CATEGORIES = [
-  'HOUSING', 'TRANSPORT', 'FOOD & DRINK', 'GROCERIES', 'HEALTH',
-  'SUBSCRIPTIONS', 'SHOPPING', 'TRAVEL', 'SAVINGS & INVESTMENTS',
-  'INCOME', 'FEES', 'OTHER'
-] as const
-
-export type Category = typeof CATEGORIES[number]
 
 export interface TransactionInput {
   id: string
@@ -34,7 +27,7 @@ function chunk<T>(arr: T[], size: number): T[][] {
 
 function normaliseCategory(cat: string): Category {
   const upper = cat.toUpperCase().trim()
-  return (CATEGORIES as readonly string[]).includes(upper) ? upper as Category : 'OTHER'
+  return isCanonicalCategory(upper) ? upper : 'OTHER'
 }
 
 async function categoriseBatch(
