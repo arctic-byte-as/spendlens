@@ -1,15 +1,17 @@
 import { createServerClient } from '@/lib/supabase/server'
 import TransactionsTable from '@/components/TransactionsTable'
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 
 export default async function TransactionsPage() {
   const supabase = createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/')
 
   const { data: rows } = await supabase
     .from('transactions')
     .select('id, date, merchant, description, category, amount, currency, is_recurring')
-    .eq('user_id', user!.id)
+    .eq('user_id', user.id)
     .order('date', { ascending: false })
     .limit(500)
 
