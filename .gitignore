@@ -1,6 +1,9 @@
 # dependencies
 node_modules/
 
+#training data
+receipts/
+
 # next.js
 .next/
 out/
