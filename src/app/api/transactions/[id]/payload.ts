@@ -1,7 +1,7 @@
-import { isCanonicalCategory, type Category } from '@/lib/transactions/categories'
+import { isCanonicalCategory, isValidCategoryName } from '@/lib/transactions/categories'
 
 type PatchPayload = {
-  category?: Category
+  category?: string  // canonical Category OR a user-defined custom category name
   notes?: string | null
 }
 
@@ -25,7 +25,7 @@ export function parseTransactionPatchPayload(payload: unknown): PatchPayload {
       throw new Error('Invalid category')
     }
     const upper = body.category.toUpperCase().trim()
-    if (!isCanonicalCategory(upper)) {
+    if (!isCanonicalCategory(upper) && !isValidCategoryName(upper)) {
       throw new Error('Invalid category')
     }
     output.category = upper

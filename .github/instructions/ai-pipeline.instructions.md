@@ -34,7 +34,7 @@ Always use `response_format` structured output to prevent prose responses. Do no
 ```
 HOUSING | TRANSPORT | FOOD & DRINK | GROCERIES | HEALTH |
 SUBSCRIPTIONS | SHOPPING | TRAVEL | SAVINGS & INVESTMENTS |
-INCOME | FEES | OTHER
+INCOME | CREDIT CARD | FEES | OTHER
 ```
 If the AI returns a category not in this list, normalise to `OTHER` before writing to the DB.
 

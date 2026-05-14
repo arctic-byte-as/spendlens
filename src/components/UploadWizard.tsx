@@ -37,7 +37,7 @@ export default function UploadWizard() {
     setHeaders(hdrs)
     const format = detectBankFormat(hdrs)
     setDetectedFormat(format)
-    const colMap = getColumnMapping(format)
+    const colMap = getColumnMapping(format, hdrs)
     setMapping(colMap)
 
     // Build preview using Papa Parse (handles quoted fields with commas correctly)
@@ -76,7 +76,11 @@ export default function UploadWizard() {
       setUploading(false)
       setProcessing(true)
 
-      const processRes = await fetch(`/api/process/${uploadData.uploadId}`, { method: 'POST' })
+      const processRes = await fetch(`/api/process/${uploadData.uploadId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mapping }),
+      })
       const processData = await processRes.json()
 
       if (!processRes.ok) {

@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { CATEGORIES, type Category, isCanonicalCategory } from '@/lib/transactions/categories'
+import { ANTHROPIC_MODEL, cachedSystemPrompt } from './model'
 
 const BATCH_SIZE = 50
 
@@ -11,10 +12,11 @@ export interface TransactionInput {
 
 export interface CategorisationResult {
   id: string
-  category: Category
+  category: string  // canonical Category OR a user-defined custom category name
   subcategory: string
   merchant: string
   is_recurring: boolean
+  failed?: boolean
 }
 
 function chunk<T>(arr: T[], size: number): T[][] {
@@ -25,16 +27,23 @@ function chunk<T>(arr: T[], size: number): T[][] {
   return chunks
 }
 
-function normaliseCategory(cat: string): Category {
+function normaliseCategory(cat: string, customCategories: string[]): string {
   const upper = cat.toUpperCase().trim()
-  return isCanonicalCategory(upper) ? upper : 'OTHER'
+  if (isCanonicalCategory(upper)) return upper
+  if (customCategories.includes(upper)) return upper
+  return 'OTHER'
 }
 
 async function categoriseBatch(
   batch: TransactionInput[],
-  client: Anthropic
+  client: Anthropic,
+  customCategories: string[]
 ): Promise<CategorisationResult[]> {
-  const systemPrompt = `You are a financial transaction categoriser. Analyse each transaction and assign exactly one category from this list: ${CATEGORIES.join(', ')}.
+  const customSection = customCategories.length > 0
+    ? `\n\nThe user has also defined these custom categories: ${customCategories.join(', ')}. Prefer these over OTHER when they are a clear fit.`
+    : ''
+
+  const systemPrompt = `You are a financial transaction categoriser. Analyse each transaction and assign exactly one category from this list: ${CATEGORIES.join(', ')}.${customSection}
 
 Return ONLY a valid JSON array. Each element must have:
 - "id": the transaction id (string, unchanged)
@@ -46,9 +55,9 @@ Return ONLY a valid JSON array. Each element must have:
 No other text, no markdown, no explanation. Just the JSON array.`
 
   const message = await client.messages.create({
-    model: 'claude-sonnet-4-20250514',
+    model: ANTHROPIC_MODEL,
     max_tokens: 4096,
-    system: systemPrompt,
+    system: cachedSystemPrompt(systemPrompt),
     messages: [{
       role: 'user',
       content: JSON.stringify(batch.map(tx => ({
@@ -75,37 +84,48 @@ No other text, no markdown, no explanation. Just the JSON array.`
   // Normalise categories
   return results.map(r => ({
     ...r,
-    category: normaliseCategory(r.category),
+    category: normaliseCategory(r.category, customCategories),
   }))
 }
 
 export async function categoriseTransactions(
-  transactions: TransactionInput[]
+  transactions: TransactionInput[],
+  customCategories: string[] = []
 ): Promise<CategorisationResult[]> {
   if (transactions.length === 0) return []
 
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-  const batches = chunk(transactions, BATCH_SIZE)
   const results: CategorisationResult[] = []
-
-  for (let i = 0; i < batches.length; i++) {
-    try {
-      const batchResults = await categoriseBatch(batches[i], client)
-      results.push(...batchResults)
-    } catch (error) {
-      console.error(`Categorisation batch ${i} failed:`, error)
-      // Add fallback 'OTHER' for failed batch
-      for (const tx of batches[i]) {
-        results.push({
-          id: tx.id,
-          category: 'OTHER',
-          subcategory: '',
-          merchant: '',
-          is_recurring: false,
-        })
-      }
-    }
+  for await (const batchResults of categoriseTransactionBatches(transactions, customCategories)) {
+    results.push(...batchResults)
   }
 
   return results
+}
+
+export async function* categoriseTransactionBatches(
+  transactions: TransactionInput[],
+  customCategories: string[] = []
+): AsyncGenerator<CategorisationResult[]> {
+  if (transactions.length === 0) return
+
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+  const batches = chunk(transactions, BATCH_SIZE)
+
+  for (let i = 0; i < batches.length; i++) {
+    try {
+      const batchResults = await categoriseBatch(batches[i], client, customCategories)
+      yield batchResults
+    } catch (error) {
+      console.error(`Categorisation batch ${i} failed:`, error)
+      // Preserve failed rows as uncategorised instead of pretending they are OTHER.
+      yield batches[i].map(tx => ({
+        id: tx.id,
+        category: 'OTHER' as Category,
+        subcategory: '',
+        merchant: '',
+        is_recurring: false,
+        failed: true,
+      }))
+    }
+  }
 }

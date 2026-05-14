@@ -49,7 +49,7 @@ Aesthetic direction: **NASA Future + Ferrari Luce** — clean uppercase letterfo
 Frontend  →  Next.js 14 (App Router, TypeScript)
 Auth      →  Supabase Auth (email + magic link)
 Database  →  Supabase Postgres (Row-Level Security enforced)
-AI        →  Anthropic Claude API (claude-sonnet-4-20250514)
+AI        →  Anthropic Claude API (`ANTHROPIC_MODEL`, default `claude-sonnet-4-6`)
 Hosting   →  Vercel
 Storage   →  Supabase Storage (raw CSV files, per-user bucket)
 ```
@@ -310,6 +310,7 @@ NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=      # server-side only, never exposed to client
 ANTHROPIC_API_KEY=              # server-side only
+ANTHROPIC_MODEL=claude-sonnet-4-6
 ```
 
 -----

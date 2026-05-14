@@ -2,20 +2,38 @@ import { createServerClient } from '@/lib/supabase/server'
 import TransactionsTable from '@/components/TransactionsTable'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import { CATEGORIES, type Category } from '@/lib/transactions/categories'
 
 const MAX_TRANSACTIONS_PAGE_LOAD = 500
 
-export default async function TransactionsPage() {
+export default async function TransactionsPage({
+  searchParams,
+}: {
+  searchParams: { category?: string }
+}) {
   const supabase = createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/')
 
+  const rawCategory = searchParams.category
+  const initialCategory: 'ALL' | 'UNCATEGORISED' | Category =
+    rawCategory === 'UNCATEGORISED' ? 'UNCATEGORISED'
+    : CATEGORIES.includes(rawCategory as Category) ? (rawCategory as Category)
+    : 'ALL'
+
   const { data: rows } = await supabase
     .from('transactions')
-    .select('id, date, merchant, description, category, amount, currency, is_recurring')
+    .select('id, date, merchant, description, category, amount, currency, is_recurring, category_source')
     .eq('user_id', user.id)
     .order('date', { ascending: false })
     .limit(MAX_TRANSACTIONS_PAGE_LOAD)
+
+  const { data: userCats } = await supabase
+    .from('user_categories')
+    .select('name')
+    .eq('user_id', user.id)
+    .order('name')
+  const customCategories = (userCats || []).map(r => r.name)
 
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '40px' }}>
@@ -61,6 +79,8 @@ export default async function TransactionsPage() {
         </div>
       ) : (
         <TransactionsTable
+          initialCategory={initialCategory}
+          initialCustomCategories={customCategories}
           initialRows={rows.map((row) => ({
             ...row,
             amount: Number(row.amount),

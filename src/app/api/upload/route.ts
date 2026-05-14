@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
   // Store in Supabase Storage
   const fileBuffer = await file.arrayBuffer()
   const { error: storageError } = await supabase.storage
-    .from('csv-uploads')
+    .from('uploads')
     .upload(storagePath, fileBuffer, { contentType: 'text/csv' })
 
   if (storageError) {

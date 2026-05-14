@@ -20,50 +20,104 @@ export interface ColumnMapping {
   currency?: string
 }
 
-export function detectBankFormat(headers: string[]): BankFormat {
-  const h = headers.map(s => s.trim())
+const HEADER_ALIASES = {
+  date: ['Date', 'Dato', 'Bokføringsdato', 'Bokforingsdato'],
+  description: ['Description', 'Beskrivelse', 'Forklaring', 'Tekst', 'Avsender'],
+  amount: ['Amount', 'Beløp', 'Belop', 'Beløb'],
+  amountOut: ['Ut fra konto', 'Ut Fra Konto'],
+  amountIn: ['Inn på konto', 'Inn pa konto'],
+  balance: ['Saldo'],
+  paymentType: ['Betalingstype'],
+  toAccount: ['Til konto'],
+  fromAccount: ['Fra konto'],
+} as const
 
-  if (h.includes('Dato') && h.includes('Forklaring') && h.includes('Ut fra konto')) {
+export function normaliseHeader(header: string): string {
+  return header.replace(/^\uFEFF/, '').trim()
+}
+
+function hasHeader(headers: string[], aliases: readonly string[]): boolean {
+  return aliases.some(alias => headers.includes(alias))
+}
+
+function pickHeader(headers: string[], aliases: readonly string[], fallback: string): string {
+  return aliases.find(alias => headers.includes(alias)) || fallback
+}
+
+export function detectBankFormat(headers: string[]): BankFormat {
+  const h = headers.map(normaliseHeader)
+
+  if (h.includes('Dato') && (h.includes('Forklaring') || h.includes('Tekst')) && hasHeader(h, HEADER_ALIASES.amountOut)) {
     return 'DNB'
   }
-  if (h.includes('Dato') && h.includes('Betalingstype') && h.includes('Tekst') && h.includes('Beløp')) {
+  if (hasHeader(h, HEADER_ALIASES.date) && hasHeader(h, HEADER_ALIASES.paymentType) && hasHeader(h, HEADER_ALIASES.description) && hasHeader(h, HEADER_ALIASES.amount)) {
     return 'NORDEA'
   }
   // Sbanken has Dato + (Til konto or Fra konto) + Beløp
-  if (h.includes('Dato') && (h.includes('Til konto') || h.includes('Fra konto'))) {
+  if (h.includes('Dato') && (hasHeader(h, HEADER_ALIASES.toAccount) || hasHeader(h, HEADER_ALIASES.fromAccount))) {
     return 'SBANKEN'
   }
   // Sparebank1: Dato + Beskrivelse + Beløp + Saldo (but not Sbanken)
-  if (h.includes('Dato') && h.includes('Beskrivelse') && h.includes('Beløp') && h.includes('Saldo')) {
+  if (h.includes('Dato') && h.includes('Beskrivelse') && hasHeader(h, HEADER_ALIASES.amount) && hasHeader(h, HEADER_ALIASES.balance)) {
     return 'SPAREBANK1'
   }
-  if (h.includes('Date') && h.includes('Description') && h.includes('Amount')) {
+  if (h.includes('Date') && h.includes('Description') && hasHeader(h, HEADER_ALIASES.amount)) {
     return 'GENERIC_EN'
   }
   // Generic NO: Dato + Beskrivelse + Beløp (no Saldo)
-  if (h.includes('Dato') && h.includes('Beskrivelse') && h.includes('Beløp')) {
+  if (h.includes('Dato') && h.includes('Beskrivelse') && hasHeader(h, HEADER_ALIASES.amount)) {
     return 'GENERIC_NO'
   }
   return 'UNKNOWN'
 }
 
-export function getColumnMapping(format: BankFormat): ColumnMapping {
+export function getColumnMapping(format: BankFormat, headers: string[] = []): ColumnMapping {
+  const h = headers.map(normaliseHeader)
   switch (format) {
     case 'DNB':
-      return { date: 'Dato', description: 'Forklaring', amountOut: 'Ut fra konto', amountIn: 'Inn på konto' }
+      return {
+        date: pickHeader(h, HEADER_ALIASES.date, 'Dato'),
+        description: pickHeader(h, ['Forklaring', 'Tekst', 'Description'], 'Forklaring'),
+        amountOut: pickHeader(h, HEADER_ALIASES.amountOut, 'Ut fra konto'),
+        amountIn: pickHeader(h, HEADER_ALIASES.amountIn, 'Inn på konto'),
+      }
     case 'NORDEA':
-      return { date: 'Dato', description: 'Tekst', amount: 'Beløp' }
+      return {
+        date: pickHeader(h, HEADER_ALIASES.date, 'Dato'),
+        description: pickHeader(h, ['Tekst', 'Avsender', 'Description'], 'Tekst'),
+        amount: pickHeader(h, HEADER_ALIASES.amount, 'Beløp'),
+      }
     case 'SBANKEN':
-      return { date: 'Dato', description: 'Tekst', amount: 'Beløp' }
+      return {
+        date: pickHeader(h, HEADER_ALIASES.date, 'Dato'),
+        description: pickHeader(h, ['Tekst', 'Beskrivelse', 'Description'], 'Tekst'),
+        amount: pickHeader(h, HEADER_ALIASES.amount, 'Beløp'),
+      }
     case 'SPAREBANK1':
-      return { date: 'Dato', description: 'Beskrivelse', amount: 'Beløp' }
+      return {
+        date: pickHeader(h, HEADER_ALIASES.date, 'Dato'),
+        description: pickHeader(h, ['Beskrivelse', 'Forklaring', 'Description'], 'Beskrivelse'),
+        amount: pickHeader(h, HEADER_ALIASES.amount, 'Beløp'),
+      }
     case 'GENERIC_EN':
-      return { date: 'Date', description: 'Description', amount: 'Amount' }
+      return {
+        date: pickHeader(h, HEADER_ALIASES.date, 'Date'),
+        description: pickHeader(h, ['Description', 'Beskrivelse', 'Tekst', 'Forklaring'], 'Description'),
+        amount: pickHeader(h, HEADER_ALIASES.amount, 'Amount'),
+      }
     case 'GENERIC_NO':
-      return { date: 'Dato', description: 'Beskrivelse', amount: 'Beløp' }
+      return {
+        date: pickHeader(h, HEADER_ALIASES.date, 'Dato'),
+        description: pickHeader(h, ['Beskrivelse', 'Tekst', 'Forklaring', 'Description'], 'Beskrivelse'),
+        amount: pickHeader(h, HEADER_ALIASES.amount, 'Beløp'),
+      }
     case 'UNKNOWN':
     default:
-      return { date: 'Date', description: 'Description', amount: 'Amount' }
+      return {
+        date: pickHeader(h, HEADER_ALIASES.date, 'Date'),
+        description: pickHeader(h, HEADER_ALIASES.description, 'Description'),
+        amount: pickHeader(h, HEADER_ALIASES.amount, 'Amount'),
+      }
   }
 }
 
@@ -112,6 +166,7 @@ export function parseTransactions(csvText: string, mapping: ColumnMapping): Pars
   const result = Papa.parse<Record<string, string>>(csvText, {
     header: true,
     skipEmptyLines: true,
+    transformHeader: normaliseHeader,
   })
 
   const transactions: ParsedTransaction[] = []
@@ -153,6 +208,7 @@ export function getHeaders(csvText: string): string[] {
   const result = Papa.parse<Record<string, string>>(csvText, {
     header: true,
     preview: 1,
+    transformHeader: normaliseHeader,
   })
   return result.meta.fields || []
 }

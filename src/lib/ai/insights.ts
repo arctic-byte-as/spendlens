@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { ANTHROPIC_MODEL, cachedSystemPrompt } from './model'
 
 export interface SavingTip {
   category: string
@@ -25,9 +26,9 @@ Return ONLY a valid JSON array of up to 5 saving tips, ordered by saving_amount 
 No other text, no markdown. Just the JSON array.`
 
   const message = await client.messages.create({
-    model: 'claude-sonnet-4-20250514',
+    model: ANTHROPIC_MODEL,
     max_tokens: 2048,
-    system: systemPrompt,
+    system: cachedSystemPrompt(systemPrompt),
     messages: [{
       role: 'user',
       content: `Monthly spending by category (NOK): ${JSON.stringify(categoryTotals)}`,
