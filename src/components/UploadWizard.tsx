@@ -25,13 +25,17 @@ export default function UploadWizard() {
   const [trialUsed, setTrialUsed] = useState(false)
   const [rowLimit, setRowLimit] = useState<number | null>(1000)
   const [loadingBilling, setLoadingBilling] = useState(true)
+  const [billingUnavailable, setBillingUnavailable] = useState(false)
 
   useEffect(() => {
     let active = true
     const loadBillingStatus = async () => {
       try {
         const res = await fetch('/api/billing/status')
-        if (!active || !res.ok) return
+        if (!active || !res.ok) {
+          if (active) setBillingUnavailable(true)
+          return
+        }
         const data = await res.json()
         setTrialUsed(Boolean(data.trialUsed))
         setRowLimit(typeof data.rowLimit === 'number' ? data.rowLimit : null)
@@ -281,6 +285,11 @@ export default function UploadWizard() {
                 You&apos;ve used your free trial. Upgrade to Pro for unlimited uploads + savings insights.
               </div>
               <UpgradeButton />
+            </div>
+          )}
+          {!loadingBilling && billingUnavailable && (
+            <div style={{ border: '1px solid var(--grid-line)', padding: '12px', marginBottom: '12px', color: 'var(--muted)', fontSize: '12px' }}>
+              Billing status could not be loaded. You can continue, and limits will still be enforced securely during processing.
             </div>
           )}
           {!loadingBilling && !trialUsed && rowLimit && rowCount > rowLimit && (

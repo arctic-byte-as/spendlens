@@ -24,6 +24,20 @@ function isColumnMapping(value: unknown): value is ColumnMapping {
     && (hasSingleAmount || hasSplitAmount)
 }
 
+function applyRowLimit(
+  transactions: ReturnType<typeof parseTransactions>,
+  rowLimit: number | undefined,
+  allowRowTruncation: boolean
+) {
+  const shouldTruncate = allowRowTruncation
+    && typeof rowLimit === 'number'
+    && transactions.length > rowLimit
+
+  return shouldTruncate
+    ? transactions.slice(0, rowLimit)
+    : transactions
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: { uploadId: string } }
@@ -100,13 +114,7 @@ export async function POST(
       )
     }
 
-    const shouldTruncate = allowRowTruncation
-      && typeof gate.rowLimit === 'number'
-      && parsedTransactions.length > gate.rowLimit
-
-    const transactionsToInsert = shouldTruncate
-      ? parsedTransactions.slice(0, gate.rowLimit)
-      : parsedTransactions
+    const transactionsToInsert = applyRowLimit(parsedTransactions, gate.rowLimit, allowRowTruncation)
 
     if (transactionsToInsert.length === 0) {
       await supabase.from('uploads').update({ status: 'error', row_count: 0 }).eq('id', uploadId)

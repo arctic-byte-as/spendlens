@@ -14,8 +14,8 @@ function toEndsAt(seconds?: number | null) {
 }
 
 function getSubscriptionPeriodEnd(sub: Stripe.Subscription) {
-  const maybeWithPeriodEnd = sub as Stripe.Subscription & { current_period_end?: number | null }
-  return maybeWithPeriodEnd.current_period_end ?? sub.cancel_at ?? null
+  const subscriptionWithPeriod = sub as Stripe.Subscription & { current_period_end?: number | null }
+  return subscriptionWithPeriod.current_period_end ?? sub.cancel_at ?? null
 }
 
 async function updateByCustomer(
