@@ -3,6 +3,14 @@
 import { useState } from 'react'
 import { createBrowserSupabaseClient } from '@/lib/supabase/client'
 
+type OAuthProvider = 'google' | 'apple' | 'azure'
+
+const OAUTH_BUTTONS: { provider: OAuthProvider; label: string; icon: string }[] = [
+  { provider: 'google', label: 'CONTINUE WITH GOOGLE', icon: 'G' },
+  { provider: 'apple',  label: 'CONTINUE WITH APPLE',  icon: '' },
+  { provider: 'azure',  label: 'CONTINUE WITH MICROSOFT', icon: 'M' },
+]
+
 export default function LandingPage() {
   const [email, setEmail] = useState('')
   const [status, setStatus] = useState<'idle' | 'loading' | 'sent' | 'error'>('idle')
@@ -25,6 +33,16 @@ export default function LandingPage() {
     } else {
       setStatus('sent')
     }
+  }
+
+  async function handleOAuth(provider: OAuthProvider) {
+    const supabase = createBrowserSupabaseClient()
+    await supabase.auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    })
   }
 
   return (
@@ -142,6 +160,41 @@ export default function LandingPage() {
             </button>
           </form>
         )}
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '28px 0 20px' }}>
+          <div style={{ flex: 1, height: '1px', background: '#3A3632' }} />
+          <div style={{ fontFamily: 'Orbitron, sans-serif', fontSize: '8px', letterSpacing: '0.2em', color: '#6A6050' }}>OR</div>
+          <div style={{ flex: 1, height: '1px', background: '#3A3632' }} />
+        </div>
+
+        <div style={{ display: 'grid', gap: '10px' }}>
+          {OAUTH_BUTTONS.map(({ provider, label, icon }) => (
+            <button
+              key={provider}
+              type="button"
+              onClick={() => handleOAuth(provider)}
+              style={{
+                width: '100%',
+                padding: '11px 16px',
+                background: 'transparent',
+                color: '#F5F0E8',
+                fontFamily: 'Orbitron, sans-serif',
+                fontSize: '9px',
+                fontWeight: 600,
+                letterSpacing: '0.15em',
+                border: '1px solid #3A3632',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '10px',
+              }}
+            >
+              <span style={{ fontFamily: 'sans-serif', fontSize: '14px', lineHeight: 1 }}>{icon}</span>
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   )
