@@ -3,10 +3,10 @@
 import { useState } from 'react'
 import { createBrowserSupabaseClient } from '@/lib/supabase/client'
 
-type OAuthProvider = 'azure'
+type OAuthProvider = 'google'
 
 const OAUTH_BUTTONS: { provider: OAuthProvider; label: string; icon: string }[] = [
-  { provider: 'azure', label: 'CONTINUE WITH MICROSOFT', icon: 'M' },
+  { provider: 'google', label: 'CONTINUE WITH GOOGLE', icon: 'G' },
 ]
 
 export default function LandingPage() {
