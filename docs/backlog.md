@@ -1,6 +1,6 @@
 # SpendLens — Product Backlog
 
-> **Living document.** Owner: CPO. Last updated: 2026-05-14.
+> **Living document.** Owner: CPO. Last updated: 2026-05-15.
 > Format: Phases → Epics → User stories. Acceptance criteria on highest-risk stories only.
 > Technical dependencies flagged with **[TECH DEP]**.
 
@@ -247,3 +247,108 @@
 - 🟠 **Integration test for `/api/webhooks/stripe`** — mock `stripe.webhooks.constructEvent`, cover all four event types and the invalid-signature rejection path
 - 🟡 **Switch to live Stripe keys** and run a real $8 end-to-end test before announcing to users
 - 🟡 **Add `STRIPE_*` env vars to Vercel** production and preview environments
+
+---
+
+## Phase 7 — Trumf Receipt Analysis
+*Goal: users who explicitly opt in can import Trumf loyalty receipt data and get item-level spending-habit analysis.*
+*Feature is behind an explicit per-user feature flag — not visible or available to other users.*
+*Full technical plan: `.github/agents/data-engineer.agent.md`*
+
+---
+
+### Epic 7-A: Feature Flag System
+
+- 🔴 **As the app, I want a `feature_flags` JSONB column on `profiles`** so that individual features can be enabled per user without schema changes.
+  - Migration adds `feature_flags jsonb NOT NULL DEFAULT '{}'` to `profiles`
+  - `src/lib/features.ts` — `hasFlag(profile, flag)` helper; always evaluated server-side
+  - Flag key for this feature: `"receipt_analysis": true`
+  - Flag set manually via Supabase SQL for now (no self-serve UI)
+  - **AC:** `hasFlag({ feature_flags: { receipt_analysis: true } }, 'receipt_analysis')` returns `true`; all other inputs return `false`.
+
+---
+
+### Epic 7-B: Database Schema
+
+- 🔴 **As the app, I want `receipts` and `receipt_items` tables** to store Trumf receipt data at item granularity.
+  - `receipts`: `id`, `user_id`, `receipt_id` (Trumf batchId), `date`, `store`, `chain`, `total_amount`, `total_bonus`, `savings_summary`, `currency`, `imported_at`
+  - `receipt_items`: `id`, `receipt_id`, `user_id`, `item_guid`, `name`, `quantity`, `unit`, `total_price`, `bonus`, `bonus_percent`, `vat_percent`, `is_unknown`, `savings_amount`
+  - RLS: `USING (user_id = auth.uid())` on both tables
+  - Unique constraint `(user_id, receipt_id)` on `receipts` — enables idempotent re-import
+  - Indexes: `(user_id, date DESC)`, `(user_id, chain)`, `(user_id, name)` on items
+  - **AC:** Migration applies cleanly; re-importing the same receipt does not create duplicates.
+  - **[TECH DEP]:** Epic 7-A must be done first.
+
+---
+
+### Epic 7-C: Import Pipeline
+
+- 🔴 **As a user with the flag, I want to import my Trumf receipts via a JSON upload** so that my receipt data is in the app.
+  - `POST /api/receipts/import` — accepts `{ receipts: TrumfReceipt[] }` body
+  - Auth check + `receipt_analysis` flag check → `403` if absent
+  - Body validated with Zod; item `name` fields truncated to 500 chars
+  - Upserts `receipts` rows 50 at a time, then bulk-inserts `receipt_items`; uses `ON CONFLICT DO NOTHING` for idempotency
+  - Returns `{ imported: N, skipped: N, errors: [] }`
+  - **AC:** Posting `all_receipts_trumf.json` (254 receipts, 5,075 items) completes without error and is idempotent on re-post.
+  - **[TECH DEP]:** Epic 7-B.
+
+- 🟠 **As a developer, I want a local bootstrap script** to seed my own receipt data without a browser upload.
+  - `scripts/import-trumf-receipts.ts` — reads `receipts/all_receipts_trumf.json`, calls Supabase with service-role key
+  - Uses `IMPORT_USER_ID` env var; script never deployed, runs locally only
+  - **[TECH DEP]:** Epic 7-B.
+
+- 🟡 **As a user with the flag, I want an upload UI at `/dashboard/receipts/import`** so that I don't need to POST JSON manually.
+  - File picker for `all_receipts_trumf.json` or individual `receipt_*.json` files
+  - Progress bar; shows `imported / skipped` on completion
+
+---
+
+### Epic 7-D: Analysis Views
+
+All views gated by `receipt_analysis` flag. Routes live under `/dashboard/receipts/`.
+
+- 🟠 **As a user, I want to see monthly spend by chain** so that I understand where I shop most.
+  - Bar chart (pure CSS) of spend per chain per month
+  - Trip count alongside spend total
+
+- 🟠 **As a user, I want to see my grocery health index** so that I know what proportion of my basket is fresh produce.
+  - Health ratio = sum of items with `bonus_percent >= 15` / total basket spend
+  - Monthly trend line; benchmark line at 0.30 (Norwegian household average)
+  - **AC:** Health ratio matches manual SQL calculation on the same data set.
+
+- 🟠 **As a user, I want to see my food vs. non-food VAT split** so that I understand the composition of my grocery spend.
+  - `vat_percent = 15` → food; `vat_percent = 25` → non-food
+  - Stacked bar per month
+
+- 🟡 **As a user, I want to track price changes for items I buy regularly** so that I can spot inflation or deal opportunities.
+  - Items purchased ≥ 3 times with `unit = 'EA'`
+  - Show average unit price per month; highlight months where price increased > 10%
+
+- 🟡 **As a user, I want to see my campaign savings rate** so that I know how effectively I use supermarket offers.
+  - `savings_rate = total_savings / (gross_spend + total_savings)`
+  - Monthly bar; highlight months above 15% as positive
+
+- 🟡 **As a user, I want to see my top 50 most purchased items by spend** so that I know where the majority of my grocery budget goes.
+  - Sortable table: name · total qty · total spend · receipt count
+
+---
+
+### Epic 7-E: Claude Receipt Insights
+
+- 🟠 **As a user, I want Claude to generate receipt-level savings tips** based on my actual basket contents.
+  - New `receiptInsights()` function in `src/lib/ai/insights.ts`
+  - Input: pre-aggregated summary (health ratio, VAT split, top 20 items, chain breakdown, savings rate) — not raw JSON
+  - System prompt scoped to NorgesGruppen chains and Norwegian household context
+  - Up to 5 tips appended to `insights.top_saving_tips` with `"source": "receipt_analysis"` tag
+  - Triggered on-demand from `/dashboard/receipts/insights`; result cached in `insights` table with a 24-hour TTL
+  - **AC:** User with 10+ receipts sees at least 3 tips that reference specific product names or chains from their data.
+  - **[TECH DEP]:** Epic 7-D analysis queries must be available to feed the aggregated input.
+
+---
+
+### Epic 7-F: Testing
+
+- 🟠 **Unit tests for `hasFlag()`** — cover all truthy/falsy inputs, including missing key and wrong type
+- 🟠 **Unit test for import idempotency** — mock Supabase upsert, verify `ON CONFLICT` behaviour
+- 🟡 **Unit tests for health ratio and VAT split SQL helpers** — seed known data, assert output matches expected ratios
+- 🟡 **E2E smoke test** — import 10-receipt slice of `all_receipts_trumf.json`, verify row counts and health ratio endpoint returns valid JSON
