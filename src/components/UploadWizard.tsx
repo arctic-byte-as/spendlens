@@ -31,8 +31,8 @@ export default function UploadWizard() {
     const loadBillingStatus = async () => {
       try {
         const res = await fetch('/api/billing/status')
-        const data = await res.json()
         if (!active || !res.ok) return
+        const data = await res.json()
         setTrialUsed(Boolean(data.trialUsed))
         setRowLimit(typeof data.rowLimit === 'number' ? data.rowLimit : null)
       } finally {
@@ -62,17 +62,11 @@ export default function UploadWizard() {
     const colMap = getColumnMapping(format, hdrs)
     setMapping(colMap)
 
-    // Build preview using Papa Parse (handles quoted fields with commas correctly)
-    const { data: previewData } = Papa.parse<Record<string, string>>(text, {
-      header: true,
-      preview: 5,
-      skipEmptyLines: true,
-    })
-    setPreview(previewData)
     const parsedForCount = Papa.parse<Record<string, string>>(text, {
       header: true,
       skipEmptyLines: true,
     })
+    setPreview(parsedForCount.data.slice(0, 5))
     setRowCount(parsedForCount.data.length)
     setStep('map')
   }, [])
@@ -292,7 +286,7 @@ export default function UploadWizard() {
           {!loadingBilling && !trialUsed && rowLimit && rowCount > rowLimit && (
             <div style={{ border: '1px solid var(--prancing-horse)', padding: '12px', marginBottom: '12px' }}>
               <div style={{ color: 'var(--carbon)', fontSize: '12px', marginBottom: '10px' }}>
-                Your free trial supports up to {rowLimit.toLocaleString('nb-NO')} transactions. This file has {rowCount.toLocaleString('nb-NO')} rows.
+                Your free trial supports up to {rowLimit.toLocaleString('nb-NO')} transactions. This file has {rowCount.toLocaleString('nb-NO')} transactions.
               </div>
               <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                 <button

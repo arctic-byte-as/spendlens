@@ -45,17 +45,22 @@ export function evaluateBillingGate({
     return { allowed: true, trialUsed }
   }
 
+  const rowLimit = FREE_TIER_TRANSACTION_LIMIT
+
   if (isInsightsRoute) {
-    return { allowed: false, error: 'upgrade_required', trialUsed, rowLimit: FREE_TIER_TRANSACTION_LIMIT }
+    return { allowed: false, error: 'upgrade_required', trialUsed, rowLimit }
   }
 
   if (trialUsed) {
-    return { allowed: false, error: 'upgrade_required', trialUsed, rowLimit: FREE_TIER_TRANSACTION_LIMIT }
+    return { allowed: false, error: 'upgrade_required', trialUsed, rowLimit }
   }
 
-  if (typeof rowCount === 'number' && rowCount > FREE_TIER_TRANSACTION_LIMIT && !allowRowTruncation) {
-    return { allowed: false, error: 'row_limit_exceeded', trialUsed, rowLimit: FREE_TIER_TRANSACTION_LIMIT }
+  if (typeof rowCount === 'number' && rowCount > rowLimit) {
+    if (!allowRowTruncation) {
+      return { allowed: false, error: 'row_limit_exceeded', trialUsed, rowLimit }
+    }
+    return { allowed: true, trialUsed, rowLimit }
   }
 
-  return { allowed: true, trialUsed, rowLimit: FREE_TIER_TRANSACTION_LIMIT }
+  return { allowed: true, trialUsed, rowLimit }
 }

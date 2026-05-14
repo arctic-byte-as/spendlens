@@ -56,7 +56,7 @@ export default async function DashboardPage() {
       .limit(1),
     supabase
       .from('profiles')
-      .select('subscription_tier')
+      .select('subscription_tier, subscription_status')
       .eq('id', user.id)
       .maybeSingle(),
   ])
@@ -64,6 +64,8 @@ export default async function DashboardPage() {
   const rows = (transactions || []) as TransactionRow[]
   const doneUploads = (uploads || []).filter(upload => upload.status === 'done')
   const isFreeTier = (profile?.subscription_tier ?? 'free') === 'free'
+  const isPastDue = profile?.subscription_status === 'past_due'
+  const insightsLocked = isFreeTier || isPastDue
   const trialUsed = doneUploads.length >= 1
   const latestTips = ((insights?.[0] as InsightRow | undefined)?.top_saving_tips || []).slice(0, 4)
   const currency = rows.find(row => row.currency)?.currency || 'NOK'
@@ -210,10 +212,10 @@ export default async function DashboardPage() {
 
         <section>
           <div style={{ ...panelTitle, marginBottom: '20px' }}>Saving Tips</div>
-          {isFreeTier ? (
+          {insightsLocked ? (
             <div style={{ borderTop: '1px solid var(--grid-line)', paddingTop: '16px' }}>
               <div style={{ color: 'var(--muted)', fontSize: '12px', lineHeight: 1.7, marginBottom: '14px' }}>
-                Savings insights are a Pro feature.
+                {isPastDue ? 'Savings insights are paused while your subscription is past due.' : 'Savings insights are a Pro feature.'}
               </div>
               <UpgradeButton />
             </div>

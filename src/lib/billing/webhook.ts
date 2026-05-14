@@ -13,6 +13,11 @@ function toEndsAt(seconds?: number | null) {
   return seconds ? new Date(seconds * 1000).toISOString() : null
 }
 
+function getSubscriptionPeriodEnd(sub: Stripe.Subscription) {
+  const maybeWithPeriodEnd = sub as Stripe.Subscription & { current_period_end?: number | null }
+  return maybeWithPeriodEnd.current_period_end ?? sub.cancel_at ?? null
+}
+
 async function updateByCustomer(
   supabase: SupabaseLike,
   stripeCustomerId: string,
@@ -55,13 +60,10 @@ export async function handleStripeWebhookEvent(supabase: SupabaseLike, event: St
       const sub = event.data.object as Stripe.Subscription
       if (!sub.customer) return
       const customerId = typeof sub.customer === 'string' ? sub.customer : sub.customer.id
-      const periodEnd = (sub as unknown as { current_period_end?: number | null; cancel_at?: number | null })
-        .current_period_end
-        ?? (sub as unknown as { cancel_at?: number | null }).cancel_at
       await updateByCustomer(supabase, customerId, {
         subscription_status: toBillingStatus(sub.status),
         subscription_tier: 'pro',
-        subscription_ends_at: toEndsAt(periodEnd),
+        subscription_ends_at: toEndsAt(getSubscriptionPeriodEnd(sub)),
       })
       return
     }
@@ -70,13 +72,10 @@ export async function handleStripeWebhookEvent(supabase: SupabaseLike, event: St
       const sub = event.data.object as Stripe.Subscription
       if (!sub.customer) return
       const customerId = typeof sub.customer === 'string' ? sub.customer : sub.customer.id
-      const periodEnd = (sub as unknown as { current_period_end?: number | null; cancel_at?: number | null })
-        .current_period_end
-        ?? (sub as unknown as { cancel_at?: number | null }).cancel_at
       await updateByCustomer(supabase, customerId, {
         subscription_status: 'cancelled',
-        subscription_tier: 'pro',
-        subscription_ends_at: toEndsAt(periodEnd),
+        subscription_tier: 'free',
+        subscription_ends_at: toEndsAt(getSubscriptionPeriodEnd(sub)),
       })
       return
     }

@@ -100,7 +100,11 @@ export async function POST(
       )
     }
 
-    const transactionsToInsert = gate.rowLimit && parsedTransactions.length > gate.rowLimit
+    const shouldTruncate = allowRowTruncation
+      && typeof gate.rowLimit === 'number'
+      && parsedTransactions.length > gate.rowLimit
+
+    const transactionsToInsert = shouldTruncate
       ? parsedTransactions.slice(0, gate.rowLimit)
       : parsedTransactions
 
