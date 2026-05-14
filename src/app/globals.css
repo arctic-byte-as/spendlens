@@ -1,0 +1,40 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300;1,400;1,500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --prancing-horse: #C8102E;
+  --luce-cream:     #F5F0E8;
+  --carbon:         #1A1A1A;
+  --bronze:         #8B6914;
+  --alcantara:      #2C2C2C;
+  --grid-line:      #E0D9CE;
+  --positive:       #2D6A4F;
+  --warning:        #C8102E;
+  --cream-dark:     #EDE6D6;
+  --muted:          #8A8070;
+  --bronze-lt:      #B8921C;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  background-color: var(--luce-cream);
+  color: var(--carbon);
+  font-family: 'DM Mono', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-orbitron {
+  font-family: 'Orbitron', sans-serif;
+}
+
+.font-dm-mono {
+  font-family: 'DM Mono', monospace;
+}
