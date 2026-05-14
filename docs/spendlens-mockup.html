@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SPENDLENS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --cream:      #F5F0E8;
+    --cream-dark: #EDE6D6;
+    --carbon:     #1A1A1A;
+    --alcantara:  #242220;
+    --red:        #C8102E;
+    --bronze:     #8B6914;
+    --bronze-lt:  #B8921C;
+    --grid:       #D8D0C0;
+    --muted:      #8A8070;
+    --positive:   #2D6A4F;
+    --text-sm:    11px;
+  }
+
+  html, body {
+    width: 100%; height: 100%;
+    background: var(--cream);
+    color: var(--carbon);
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* NAV */
+  nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 40px;
+    height: 56px;
+    border-bottom: 1px solid var(--grid);
+    background: var(--cream);
+    position: sticky; top: 0; z-index: 10;
+  }
+  .logo {
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 900;
+    font-size: 18px;
+    letter-spacing: 0.25em;
+    color: var(--carbon);
+  }
+  .logo span { color: var(--red); }
+  .nav-links {
+    display: flex; gap: 36px; list-style: none;
+  }
+  .nav-links a {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    color: var(--muted);
+    text-decoration: none;
+    text-transform: uppercase;
+  }
+  .nav-links a.active { color: var(--carbon); }
+  .nav-user {
+    display: flex; align-items: center; gap: 10px;
+  }
+  .avatar {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    background: var(--alcantara);
+    color: var(--bronze-lt);
+    font-family: 'Orbitron', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    letter-spacing: 0.05em;
+  }
+
+  /* SUMMARY BAR */
+  .summary-bar {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    border-bottom: 1px solid var(--grid);
+    background: var(--alcantara);
+  }
+  .kpi {
+    padding: 20px 32px;
+    border-right: 1px solid #3A3632;
+  }
+  .kpi:last-child { border-right: none; }
+  .kpi-label {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 8px;
+    font-weight: 500;
+    letter-spacing: 0.25em;
+    color: var(--muted);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+  }
+  .kpi-value {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: #F5F0E8;
+    letter-spacing: 0.04em;
+  }
+  .kpi-value.positive { color: #4CAF82; }
+  .kpi-value.negative { color: var(--red); }
+  .kpi-sub {
+    font-size: 10px;
+    color: #5A5550;
+    margin-top: 4px;
+    letter-spacing: 0.05em;
+  }
+
+  /* PERIOD SELECTOR */
+  .period-bar {
+    display: flex;
+    align-items: center;
+    padding: 12px 40px;
+    gap: 6px;
+    border-bottom: 1px solid var(--grid);
+  }
+  .period-label {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 8px;
+    letter-spacing: 0.2em;
+    color: var(--muted);
+    margin-right: 8px;
+  }
+  .period-btn {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 8px;
+    font-weight: 500;
+    letter-spacing: 0.15em;
+    padding: 5px 14px;
+    border: 1px solid var(--grid);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    text-transform: uppercase;
+  }
+  .period-btn.active {
+    background: var(--carbon);
+    color: var(--cream);
+    border-color: var(--carbon);
+  }
+
+  /* MAIN GRID */
+  .main {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 0;
+    min-height: calc(100vh - 56px - 65px - 49px);
+  }
+
+  /* LEFT — CATEGORIES */
+  .panel-left {
+    padding: 36px 40px;
+    border-right: 1px solid var(--grid);
+  }
+  .panel-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.3em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 28px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .panel-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--grid);
+  }
+
+  .cat-row {
+    display: grid;
+    grid-template-columns: 160px 1fr 90px;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 18px;
+    cursor: pointer;
+  }
+  .cat-row:hover .cat-bar-fill { filter: brightness(1.1); }
+
+  .cat-name {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 0.15em;
+    color: var(--carbon);
+    text-transform: uppercase;
+  }
+  .cat-bar-track {
+    height: 6px;
+    background: var(--cream-dark);
+    border-radius: 0;
+    overflow: hidden;
+    position: relative;
+  }
+  .cat-bar-fill {
+    height: 100%;
+    background: var(--bronze);
+    transition: width 0.4s ease;
+  }
+  .cat-bar-fill.red { background: var(--red); }
+  .cat-bar-fill.carbon { background: var(--carbon); }
+  .cat-bar-fill.mid { background: #B8921C; }
+
+  .cat-amount {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 11px;
+    font-weight: 500;
+    text-align: right;
+    color: var(--carbon);
+  }
+  .cat-pct {
+    font-size: 10px;
+    color: var(--muted);
+    text-align: right;
+    margin-top: 2px;
+  }
+
+  /* RIGHT — SAVINGS TIPS */
+  .panel-right {
+    padding: 36px 32px;
+    background: #F0EAE0;
+  }
+
+  .tip-card {
+    border: 1px solid var(--grid);
+    background: var(--cream);
+    padding: 18px 20px;
+    margin-bottom: 14px;
+    position: relative;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .tip-card:hover { border-color: var(--bronze); }
+  .tip-card::before {
+    content: attr(data-rank);
+    position: absolute;
+    top: -1px; left: -1px;
+    width: 24px; height: 24px;
+    background: var(--red);
+    color: white;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 9px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    letter-spacing: 0;
+  }
+  .tip-card::before { display: block; text-align: center; line-height: 24px; }
+
+  .tip-category {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.25em;
+    color: var(--red);
+    margin-bottom: 6px;
+    margin-left: 20px;
+  }
+  .tip-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--carbon);
+    line-height: 1.5;
+    margin-bottom: 10px;
+  }
+  .tip-saving {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+  }
+  .tip-saving-label {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 8px;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+  .tip-saving-amount {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--positive);
+  }
+  .tip-saving-period {
+    font-size: 10px;
+    color: var(--muted);
+  }
+
+  /* TRANSACTION TABLE */
+  .tx-section {
+    border-top: 1px solid var(--grid);
+    padding: 28px 40px;
+  }
+  .tx-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .tx-search {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    padding: 8px 14px;
+    border: 1px solid var(--grid);
+    background: transparent;
+    color: var(--carbon);
+    width: 260px;
+    outline: none;
+    letter-spacing: 0.03em;
+  }
+  .tx-search::placeholder { color: var(--muted); }
+  .tx-filter-btn {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 8px;
+    letter-spacing: 0.15em;
+    padding: 8px 16px;
+    border: 1px solid var(--grid);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    text-transform: uppercase;
+  }
+  .tx-filter-btn.active {
+    background: var(--carbon);
+    color: var(--cream);
+    border-color: var(--carbon);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  th {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    color: var(--muted);
+    text-align: left;
+    padding: 0 12px 10px 0;
+    border-bottom: 1px solid var(--grid);
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  th:last-child { text-align: right; }
+  td {
+    padding: 13px 12px 13px 0;
+    border-bottom: 1px solid var(--cream-dark);
+    vertical-align: middle;
+  }
+  td:last-child { text-align: right; }
+  tr:hover td { background: rgba(0,0,0,0.015); }
+
+  .tx-date { color: var(--muted); font-size: 11px; white-space: nowrap; }
+  .tx-merchant { font-weight: 500; color: var(--carbon); }
+  .tx-desc { color: var(--muted); font-size: 11px; }
+  .tx-cat {
+    display: inline-block;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 7.5px;
+    letter-spacing: 0.12em;
+    padding: 3px 8px;
+    border: 1px solid var(--grid);
+    color: var(--bronze);
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .tx-amount {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .tx-amount.debit { color: var(--carbon); }
+  .tx-amount.credit { color: var(--positive); }
+
+  /* FOOTER LINE */
+  .bottom-bar {
+    border-top: 1px solid var(--grid);
+    padding: 12px 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .bottom-bar span {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 8px;
+    letter-spacing: 0.2em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+  .bottom-bar .version { color: var(--bronze); }
+
+  /* UPLOAD HINT */
+  .upload-btn {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    padding: 10px 24px;
+    background: var(--red);
+    color: white;
+    border: none;
+    cursor: pointer;
+    text-transform: uppercase;
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="logo">SPEND<span>LENS</span></div>
+  <ul class="nav-links">
+    <li><a href="#" class="active">DASHBOARD</a></li>
+    <li><a href="#">UPLOADS</a></li>
+    <li><a href="#">TRANSACTIONS</a></li>
+    <li><a href="#">SETTINGS</a></li>
+  </ul>
+  <div class="nav-user">
+    <div class="avatar">PH</div>
+  </div>
+</nav>
+
+<!-- SUMMARY BAR -->
+<div class="summary-bar">
+  <div class="kpi">
+    <div class="kpi-label">Period</div>
+    <div class="kpi-value" style="font-size:15px; margin-top:4px;">JAN – MAR 2025</div>
+    <div class="kpi-sub">Q1 · 91 DAYS</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">Total Spend</div>
+    <div class="kpi-value negative">47 320 NOK</div>
+    <div class="kpi-sub">↑ 12% VS Q4 2024</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">Income</div>
+    <div class="kpi-value">62 400 NOK</div>
+    <div class="kpi-sub">3 TRANSACTIONS</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">Net Saved</div>
+    <div class="kpi-value positive">+15 080 NOK</div>
+    <div class="kpi-sub">24.2% SAVINGS RATE</div>
+  </div>
+</div>
+
+<!-- PERIOD TABS -->
+<div class="period-bar">
+  <span class="period-label">VIEW</span>
+  <button class="period-btn">1M</button>
+  <button class="period-btn active">3M</button>
+  <button class="period-btn">6M</button>
+  <button class="period-btn">YTD</button>
+  <button class="period-btn">ALL</button>
+</div>
+
+<!-- MAIN GRID -->
+<div class="main">
+
+  <!-- CATEGORY BREAKDOWN -->
+  <div class="panel-left">
+    <div class="panel-title">Spending by Category</div>
+
+    <div class="cat-row">
+      <div>
+        <div class="cat-name">Housing</div>
+        <div class="cat-pct">28.4%</div>
+      </div>
+      <div class="cat-bar-track"><div class="cat-bar-fill carbon" style="width:100%"></div></div>
+      <div>
+        <div class="cat-amount">13 450 NOK</div>
+      </div>
+    </div>
+
+    <div class="cat-row">
+      <div>
+        <div class="cat-name">Food &amp; Drink</div>
+        <div class="cat-pct">21.3%</div>
+      </div>
+      <div class="cat-bar-track"><div class="cat-bar-fill red" style="width:75%"></div></div>
+      <div>
+        <div class="cat-amount">10 090 NOK</div>
+      </div>
+    </div>
+
+    <div class="cat-row">
+      <div>
+        <div class="cat-name">Transport</div>
+        <div class="cat-pct">14.1%</div>
+      </div>
+      <div class="cat-bar-track"><div class="cat-bar-fill" style="width:50%"></div></div>
+      <div>
+        <div class="cat-amount">6 680 NOK</div>
+      </div>
+    </div>
+
+    <div class="cat-row">
+      <div>
+        <div class="cat-name">Subscriptions</div>
+        <div class="cat-pct">10.8%</div>
+      </div>
+      <div class="cat-bar-track"><div class="cat-bar-fill mid" style="width:38%"></div></div>
+      <div>
+        <div class="cat-amount">5 120 NOK</div>
+      </div>
+    </div>
+
+    <div class="cat-row">
+      <div>
+        <div class="cat-name">Groceries</div>
+        <div class="cat-pct">9.4%</div>
+      </div>
+      <div class="cat-bar-track"><div class="cat-bar-fill" style="width:33%; background:#6B8C6B"></div></div>
+      <div>
+        <div class="cat-amount">4 450 NOK</div>
+      </div>
+    </div>
+
+    <div class="cat-row">
+      <div>
+        <div class="cat-name">Shopping</div>
+        <div class="cat-pct">8.2%</div>
+      </div>
+      <div class="cat-bar-track"><div class="cat-bar-fill" style="width:29%; background:#7A6A5A"></div></div>
+      <div>
+        <div class="cat-amount">3 880 NOK</div>
+      </div>
+    </div>
+
+    <div class="cat-row">
+      <div>
+        <div class="cat-name">Health</div>
+        <div class="cat-pct">5.2%</div>
+      </div>
+      <div class="cat-bar-track"><div class="cat-bar-fill" style="width:18%; background:#7A6A5A"></div></div>
+      <div>
+        <div class="cat-amount">2 460 NOK</div>
+      </div>
+    </div>
+
+    <div class="cat-row">
+      <div>
+        <div class="cat-name">Other</div>
+        <div class="cat-pct">2.6%</div>
+      </div>
+      <div class="cat-bar-track"><div class="cat-bar-fill" style="width:9%; background:#BBAА90"></div></div>
+      <div>
+        <div class="cat-amount">1 190 NOK</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- SAVINGS RADAR -->
+  <div class="panel-right">
+    <div class="panel-title">Savings Radar</div>
+
+    <div class="tip-card" data-rank="1">
+      <div class="tip-category">Subscriptions</div>
+      <div class="tip-title">4 active streaming services detected. Netflix, HBO Max, Disney+ and Viaplay overlap significantly.</div>
+      <div class="tip-saving">
+        <span class="tip-saving-label">SAVE UP TO</span>
+        <span class="tip-saving-amount">890 NOK</span>
+        <span class="tip-saving-period">/ MO</span>
+      </div>
+    </div>
+
+    <div class="tip-card" data-rank="2">
+      <div class="tip-category">Food &amp; Drink</div>
+      <div class="tip-title">23 restaurant visits this quarter. Avg. 438 NOK per visit vs 89 NOK home-cooked estimate.</div>
+      <div class="tip-saving">
+        <span class="tip-saving-label">SAVE UP TO</span>
+        <span class="tip-saving-amount">2 100 NOK</span>
+        <span class="tip-saving-period">/ MO</span>
+      </div>
+    </div>
+
+    <div class="tip-card" data-rank="3">
+      <div class="tip-category">Transport</div>
+      <div class="tip-title">Frequent taxi usage on weekdays. Ruter monthly pass would cover 68% of journeys at lower cost.</div>
+      <div class="tip-saving">
+        <span class="tip-saving-label">SAVE UP TO</span>
+        <span class="tip-saving-amount">740 NOK</span>
+        <span class="tip-saving-period">/ MO</span>
+      </div>
+    </div>
+
+    <div class="tip-card" data-rank="4">
+      <div class="tip-category">Fees</div>
+      <div class="tip-title">Monthly bank fees detected (DNB Ung expiry). Switching to fee-free account saves immediately.</div>
+      <div class="tip-saving">
+        <span class="tip-saving-label">SAVE UP TO</span>
+        <span class="tip-saving-amount">199 NOK</span>
+        <span class="tip-saving-period">/ MO</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- TRANSACTIONS -->
+<div class="tx-section">
+  <div class="panel-title">Recent Transactions</div>
+  <div class="tx-controls">
+    <input class="tx-search" type="text" placeholder="SEARCH MERCHANT OR DESCRIPTION...">
+    <button class="tx-filter-btn active">ALL</button>
+    <button class="tx-filter-btn">FOOD</button>
+    <button class="tx-filter-btn">TRANSPORT</button>
+    <button class="tx-filter-btn">SUBSCRIPTIONS</button>
+    <div style="flex:1"></div>
+    <button class="upload-btn">+ IMPORT CSV</button>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Merchant</th>
+        <th>Description</th>
+        <th>Category</th>
+        <th>Amount</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="tx-date">15 MAR 2025</td>
+        <td class="tx-merchant">Maaemo</td>
+        <td class="tx-desc">DINNER · TABLE FOR 2</td>
+        <td><span class="tx-cat">Food &amp; Drink</span></td>
+        <td class="tx-amount debit">−2 840 NOK</td>
+      </tr>
+      <tr>
+        <td class="tx-date">14 MAR 2025</td>
+        <td class="tx-merchant">Bolt</td>
+        <td class="tx-desc">TAXI · OSLO SENTRUM</td>
+        <td><span class="tx-cat">Transport</span></td>
+        <td class="tx-amount debit">−189 NOK</td>
+      </tr>
+      <tr>
+        <td class="tx-date">13 MAR 2025</td>
+        <td class="tx-merchant">Netflix</td>
+        <td class="tx-desc">MÅNEDLIG ABONNEMENT</td>
+        <td><span class="tx-cat">Subscriptions</span></td>
+        <td class="tx-amount debit">−179 NOK</td>
+      </tr>
+      <tr>
+        <td class="tx-date">12 MAR 2025</td>
+        <td class="tx-merchant">LØNNING AS</td>
+        <td class="tx-desc">LØNN MARS 2025</td>
+        <td><span class="tx-cat" style="color:var(--positive); border-color: #B0D0C0;">Income</span></td>
+        <td class="tx-amount credit">+62 400 NOK</td>
+      </tr>
+      <tr>
+        <td class="tx-date">11 MAR 2025</td>
+        <td class="tx-merchant">Joker Majorstuen</td>
+        <td class="tx-desc">DAGLIGVARER</td>
+        <td><span class="tx-cat">Groceries</span></td>
+        <td class="tx-amount debit">−743 NOK</td>
+      </tr>
+      <tr>
+        <td class="tx-date">10 MAR 2025</td>
+        <td class="tx-merchant">Viaplay</td>
+        <td class="tx-desc">SPORT + SERIER PAKKE</td>
+        <td><span class="tx-cat">Subscriptions</span></td>
+        <td class="tx-amount debit">−399 NOK</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- BOTTOM BAR -->
+<div class="bottom-bar">
+  <span>SPENDLENS · PRIVATE BETA</span>
+  <span>148 TRANSACTIONS · LAST IMPORT 15 MAR 2025</span>
+  <span class="version">V1.0.0</span>
+</div>
+
+</body>
+</html>
