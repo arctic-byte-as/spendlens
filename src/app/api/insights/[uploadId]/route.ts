@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
+import { evaluateBillingGate } from '@/lib/billing/gate'
 
 export async function GET(
   _request: Request,
@@ -23,6 +24,32 @@ export async function GET(
 
   if (!upload) {
     return NextResponse.json({ error: 'Upload not found' }, { status: 404 })
+  }
+
+  const [{ data: profile }, { count: completedUploads }] = await Promise.all([
+    supabase
+      .from('profiles')
+      .select('subscription_status, subscription_tier')
+      .eq('id', user.id)
+      .maybeSingle(),
+    supabase
+      .from('uploads')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('status', 'done'),
+  ])
+
+  const gate = evaluateBillingGate({
+    profile: {
+      subscription_status: profile?.subscription_status ?? 'free',
+      subscription_tier: profile?.subscription_tier ?? 'free',
+    },
+    completedUploads: completedUploads || 0,
+    isInsightsRoute: true,
+  })
+
+  if (!gate.allowed) {
+    return NextResponse.json({ error: gate.error }, { status: 402 })
   }
 
   const { data: insight, error: insightError } = await supabase

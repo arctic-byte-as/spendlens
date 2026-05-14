@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import Papa from 'papaparse'
 import { detectBankFormat, getColumnMapping, getHeaders } from '@/lib/csv/parse'
 import type { BankFormat, ColumnMapping } from '@/lib/csv/parse'
 import ColumnMapper from './ColumnMapper'
+import UpgradeButton from './UpgradeButton'
 
 type WizardStep = 'upload' | 'map' | 'confirm'
 
@@ -15,11 +16,36 @@ export default function UploadWizard() {
   const [detectedFormat, setDetectedFormat] = useState<BankFormat>('UNKNOWN')
   const [mapping, setMapping] = useState<ColumnMapping>({ date: '', description: '', amount: '' })
   const [preview, setPreview] = useState<Record<string, string>[]>([])
+  const [rowCount, setRowCount] = useState(0)
   const [uploading, setUploading] = useState(false)
   const [processing, setProcessing] = useState(false)
   const [status, setStatus] = useState<'idle' | 'done' | 'error'>('idle')
   const [errorMsg, setErrorMsg] = useState('')
   const [dragOver, setDragOver] = useState(false)
+  const [trialUsed, setTrialUsed] = useState(false)
+  const [rowLimit, setRowLimit] = useState<number | null>(1000)
+  const [loadingBilling, setLoadingBilling] = useState(true)
+  const [billingUnavailable, setBillingUnavailable] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    const loadBillingStatus = async () => {
+      try {
+        const res = await fetch('/api/billing/status')
+        if (!active || !res.ok) {
+          if (active) setBillingUnavailable(true)
+          return
+        }
+        const data = await res.json()
+        setTrialUsed(Boolean(data.trialUsed))
+        setRowLimit(typeof data.rowLimit === 'number' ? data.rowLimit : null)
+      } finally {
+        if (active) setLoadingBilling(false)
+      }
+    }
+    void loadBillingStatus()
+    return () => { active = false }
+  }, [])
 
   const handleFile = useCallback(async (f: File) => {
     if (!f.name.toLowerCase().endsWith('.csv')) {
@@ -40,13 +66,12 @@ export default function UploadWizard() {
     const colMap = getColumnMapping(format, hdrs)
     setMapping(colMap)
 
-    // Build preview using Papa Parse (handles quoted fields with commas correctly)
-    const { data: previewData } = Papa.parse<Record<string, string>>(text, {
+    const parsedForCount = Papa.parse<Record<string, string>>(text, {
       header: true,
-      preview: 5,
       skipEmptyLines: true,
     })
-    setPreview(previewData)
+    setPreview(parsedForCount.data.slice(0, 5))
+    setRowCount(parsedForCount.data.length)
     setStep('map')
   }, [])
 
@@ -57,7 +82,7 @@ export default function UploadWizard() {
     if (f) handleFile(f)
   }, [handleFile])
 
-  const handleImport = async () => {
+  const handleImport = async (allowRowTruncation = false) => {
     if (!file) return
     setUploading(true)
     setErrorMsg('')
@@ -79,7 +104,7 @@ export default function UploadWizard() {
       const processRes = await fetch(`/api/process/${uploadData.uploadId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mapping }),
+        body: JSON.stringify({ mapping, allowRowTruncation }),
       })
       const processData = await processRes.json()
 
@@ -225,6 +250,11 @@ export default function UploadWizard() {
             <div style={{ fontFamily: 'Orbitron, sans-serif', fontSize: '9px', letterSpacing: '0.2em', color: 'var(--muted)', marginBottom: '8px' }}>READY TO IMPORT</div>
             <div style={{ color: 'var(--carbon)' }}>File: <strong>{file?.name}</strong></div>
             <div style={{ color: 'var(--muted)', fontSize: '11px', marginTop: '4px' }}>Format: {detectedFormat}</div>
+            {rowCount > 0 && (
+              <div style={{ color: 'var(--muted)', fontSize: '11px', marginTop: '4px' }}>
+                Rows detected: {rowCount.toLocaleString('nb-NO')}
+              </div>
+            )}
           </div>
           <div style={{ marginBottom: '24px' }}>
             <div style={{ fontFamily: 'Orbitron, sans-serif', fontSize: '8px', letterSpacing: '0.2em', color: 'var(--muted)', marginBottom: '12px' }}>PREVIEW (FIRST 5 ROWS)</div>
@@ -249,6 +279,37 @@ export default function UploadWizard() {
               </tbody>
             </table>
           </div>
+          {!loadingBilling && trialUsed && (
+            <div style={{ border: '1px solid var(--prancing-horse)', padding: '12px', marginBottom: '12px' }}>
+              <div style={{ color: 'var(--carbon)', fontSize: '12px', marginBottom: '10px' }}>
+                You&apos;ve used your free trial. Upgrade to Pro for unlimited uploads + savings insights.
+              </div>
+              <UpgradeButton />
+            </div>
+          )}
+          {!loadingBilling && billingUnavailable && (
+            <div style={{ border: '1px solid var(--grid-line)', padding: '12px', marginBottom: '12px', color: 'var(--muted)', fontSize: '12px' }}>
+              Billing status could not be loaded. You can continue, and limits will still be enforced securely during processing.
+            </div>
+          )}
+          {!loadingBilling && !trialUsed && rowLimit && rowCount > rowLimit && (
+            <div style={{ border: '1px solid var(--prancing-horse)', padding: '12px', marginBottom: '12px' }}>
+              <div style={{ color: 'var(--carbon)', fontSize: '12px', marginBottom: '10px' }}>
+                Your free trial supports up to {rowLimit.toLocaleString('nb-NO')} transactions. This file has {rowCount.toLocaleString('nb-NO')} transactions.
+              </div>
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => handleImport(true)}
+                  disabled={uploading || processing}
+                  style={{ fontFamily: 'Orbitron, sans-serif', fontSize: '8px', letterSpacing: '0.2em', padding: '8px 14px', background: 'var(--carbon)', color: 'var(--luce-cream)', border: 'none', cursor: uploading || processing ? 'wait' : 'pointer' }}
+                >
+                  IMPORT FIRST {rowLimit.toLocaleString('nb-NO')}
+                </button>
+                <UpgradeButton />
+              </div>
+            </div>
+          )}
           {errorMsg && <div style={{ color: 'var(--prancing-horse)', marginBottom: '12px', fontSize: '12px' }}>{errorMsg}</div>}
           <div style={{ display: 'flex', gap: '12px' }}>
             <button
@@ -258,8 +319,8 @@ export default function UploadWizard() {
               ← BACK
             </button>
             <button
-              onClick={handleImport}
-              disabled={uploading || processing}
+              onClick={() => handleImport(false)}
+              disabled={uploading || processing || (!loadingBilling && trialUsed)}
               style={{ fontFamily: 'Orbitron, sans-serif', fontSize: '9px', letterSpacing: '0.2em', padding: '10px 28px', background: 'var(--prancing-horse)', color: 'white', border: 'none', cursor: uploading || processing ? 'wait' : 'pointer' }}
             >
               {uploading ? 'UPLOADING...' : processing ? 'PROCESSING...' : 'IMPORT'}

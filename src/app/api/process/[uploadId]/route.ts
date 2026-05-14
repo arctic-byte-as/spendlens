@@ -5,6 +5,8 @@ import { detectBankFormat, getColumnMapping, parseTransactions, sanitiseDescript
 import type { ColumnMapping } from '@/lib/csv/parse'
 import { categoriseTransactionBatches, type CategorisationResult } from '@/lib/ai/categorise'
 import { generateInsights } from '@/lib/ai/insights'
+import { evaluateBillingGate } from '@/lib/billing/gate'
+import { FREE_TIER_TRANSACTION_LIMIT } from '@/lib/billing/constants'
 
 const TRANSACTION_INSERT_BATCH = 500
 
@@ -22,6 +24,20 @@ function isColumnMapping(value: unknown): value is ColumnMapping {
     && (hasSingleAmount || hasSplitAmount)
 }
 
+function applyRowLimit(
+  transactions: ReturnType<typeof parseTransactions>,
+  rowLimit: number | undefined,
+  allowRowTruncation: boolean
+) {
+  const shouldTruncate = allowRowTruncation
+    && typeof rowLimit === 'number'
+    && transactions.length > rowLimit
+
+  return shouldTruncate
+    ? transactions.slice(0, rowLimit)
+    : transactions
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: { uploadId: string } }
@@ -33,6 +49,7 @@ export async function POST(
   const { uploadId } = params
   const body = await request.json().catch(() => null)
   const providedMapping = isColumnMapping(body?.mapping) ? body.mapping : null
+  const allowRowTruncation = body?.allowRowTruncation === true
 
   // Verify upload belongs to user
   const { data: upload, error: uploadError } = await supabase
@@ -65,7 +82,41 @@ export async function POST(
     const mapping = providedMapping || getColumnMapping(format, headers)
     const parsedTransactions = parseTransactions(csvText, mapping)
 
-    if (parsedTransactions.length === 0) {
+    const [{ data: profile }, { count: completedUploads }] = await Promise.all([
+      supabase
+        .from('profiles')
+        .select('subscription_status, subscription_tier')
+        .eq('id', user.id)
+        .maybeSingle(),
+      supabase
+        .from('uploads')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('status', 'done')
+        .neq('id', uploadId),
+    ])
+
+    const gate = evaluateBillingGate({
+      profile: {
+        subscription_status: profile?.subscription_status ?? 'free',
+        subscription_tier: profile?.subscription_tier ?? 'free',
+      },
+      completedUploads: completedUploads || 0,
+      rowCount: parsedTransactions.length,
+      allowRowTruncation,
+    })
+
+    if (!gate.allowed) {
+      await supabase.from('uploads').update({ status: 'error' }).eq('id', uploadId)
+      return NextResponse.json(
+        { error: gate.error, rowLimit: gate.rowLimit ?? FREE_TIER_TRANSACTION_LIMIT },
+        { status: 402 }
+      )
+    }
+
+    const transactionsToInsert = applyRowLimit(parsedTransactions, gate.rowLimit, allowRowTruncation)
+
+    if (transactionsToInsert.length === 0) {
       await supabase.from('uploads').update({ status: 'error', row_count: 0 }).eq('id', uploadId)
       return NextResponse.json({
         error: 'No transactions found in CSV',
@@ -74,7 +125,7 @@ export async function POST(
     }
 
     // Insert transactions
-    const transactionRows = parsedTransactions.map(tx => ({
+    const transactionRows = transactionsToInsert.map(tx => ({
       user_id: user.id,
       upload_id: uploadId,
       date: tx.date,
@@ -154,13 +205,13 @@ export async function POST(
 
       const tips = await generateInsights(categoryTotals)
 
-      const periodDates = parsedTransactions.map(t => t.date).sort()
+      const periodDates = transactionsToInsert.map(t => t.date).sort()
       const { error: insightInsertError } = await supabase.from('insights').insert({
         user_id: user.id,
         upload_id: uploadId,
         period_start: periodDates[0],
         period_end: periodDates[periodDates.length - 1],
-        summary_json: { total_transactions: parsedTransactions.length, category_totals: categoryTotals },
+        summary_json: { total_transactions: transactionsToInsert.length, category_totals: categoryTotals },
         top_saving_tips: tips,
       })
 
@@ -175,10 +226,15 @@ export async function POST(
     // Update upload status
     await supabase.from('uploads').update({
       status: 'done',
-      row_count: parsedTransactions.length,
+      row_count: transactionsToInsert.length,
     }).eq('id', uploadId)
 
-    return NextResponse.json({ success: true, count: parsedTransactions.length })
+    return NextResponse.json({
+      success: true,
+      count: transactionsToInsert.length,
+      truncated: transactionsToInsert.length < parsedTransactions.length,
+      rowLimit: gate.rowLimit ?? FREE_TIER_TRANSACTION_LIMIT,
+    })
   } catch (error) {
     console.error('Processing error:', error)
     await supabase.from('uploads').update({ status: 'error' }).eq('id', uploadId)

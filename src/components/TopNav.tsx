@@ -1,12 +1,22 @@
 import Link from 'next/link'
 import { createServerClient } from '@/lib/supabase/server'
+import BillingPortalButton from './BillingPortalButton'
 
 export default async function TopNav() {
   let user = null
+  let subscriptionStatus: string | null = null
   try {
     const supabase = createServerClient()
     const { data } = await supabase.auth.getUser()
     user = data.user
+    if (user) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('subscription_status')
+        .eq('id', user.id)
+        .maybeSingle()
+      subscriptionStatus = profile?.subscription_status ?? null
+    }
   } catch {
     // Not in a request context
   }
@@ -69,6 +79,11 @@ export default async function TopNav() {
               </Link>
             </li>
           ))}
+          {subscriptionStatus === 'active' && (
+            <li>
+              <BillingPortalButton />
+            </li>
+          )}
         </ul>
       )}
 
