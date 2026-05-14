@@ -74,6 +74,7 @@ export default function TransactionsTable({ initialRows }: Props) {
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center' }}>
         <input
           type="search"
+          aria-label="Search merchant or description"
           placeholder="SEARCH MERCHANT OR DESCRIPTION"
           value={search}
           onChange={(e) => changeSearch(e.target.value)}
@@ -88,6 +89,7 @@ export default function TransactionsTable({ initialRows }: Props) {
           }}
         />
         <select
+          aria-label="Filter by category"
           value={category}
           onChange={(e) => changeFilterCategory(e.target.value as 'ALL' | Category)}
           style={{
