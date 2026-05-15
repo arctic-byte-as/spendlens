@@ -87,6 +87,7 @@ Design aesthetic: **NASA Future + Ferrari Luce** — see §2 for colour tokens a
 id           uuid  references auth.users primary key
 email        text
 display_name text
+feature_flags jsonb default '{}' -- per-user feature toggles, e.g. {"receipt_analysis": true}
 created_at   timestamptz default now()
 ```
 
@@ -184,6 +185,7 @@ USING (user_id = auth.uid())
 /                       Landing + sign-in
 /auth/callback          Magic link handler
 /dashboard              Main view (redirects to /upload if no data)
+/dashboard/receipts     Receipt analysis workspace (feature-flagged: receipt_analysis)
 /upload                 CSV import wizard (3 steps)
 /uploads                Import history
 /transactions           Full transaction table

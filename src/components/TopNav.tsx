@@ -1,10 +1,12 @@
 import Link from 'next/link'
 import { createServerClient } from '@/lib/supabase/server'
 import BillingPortalButton from './BillingPortalButton'
+import { hasFlag } from '@/lib/features'
 
 export default async function TopNav() {
   let user = null
   let subscriptionStatus: string | null = null
+  let receiptAnalysisEnabled = false
   try {
     const supabase = createServerClient()
     const { data } = await supabase.auth.getUser()
@@ -12,10 +14,11 @@ export default async function TopNav() {
     if (user) {
       const { data: profile } = await supabase
         .from('profiles')
-        .select('subscription_status')
+        .select('subscription_status, feature_flags')
         .eq('id', user.id)
         .maybeSingle()
       subscriptionStatus = profile?.subscription_status ?? null
+      receiptAnalysisEnabled = hasFlag(profile, 'receipt_analysis')
     }
   } catch {
     // Not in a request context
@@ -61,6 +64,7 @@ export default async function TopNav() {
             { href: '/upload', label: 'UPLOAD' },
             { href: '/uploads', label: 'HISTORY' },
             { href: '/transactions', label: 'TRANSACTIONS' },
+            ...(receiptAnalysisEnabled ? [{ href: '/dashboard/receipts', label: 'RECEIPTS' }] : []),
           ].map(link => (
             <li key={link.href}>
               <Link
