@@ -6,7 +6,7 @@ import { hasFlag } from '@/lib/features'
 export default async function TopNav() {
   let user = null
   let subscriptionStatus: string | null = null
-  let receiptAnalysisEnabled = false
+  let hasReceiptAnalysisFlag = false
   try {
     const supabase = createServerClient()
     const { data } = await supabase.auth.getUser()
@@ -18,7 +18,7 @@ export default async function TopNav() {
         .eq('id', user.id)
         .maybeSingle()
       subscriptionStatus = profile?.subscription_status ?? null
-      receiptAnalysisEnabled = hasFlag(profile, 'receipt_analysis')
+      hasReceiptAnalysisFlag = hasFlag(profile, 'receipt_analysis')
     }
   } catch {
     // Not in a request context
@@ -64,7 +64,7 @@ export default async function TopNav() {
             { href: '/upload', label: 'UPLOAD' },
             { href: '/uploads', label: 'HISTORY' },
             { href: '/transactions', label: 'TRANSACTIONS' },
-            ...(receiptAnalysisEnabled ? [{ href: '/dashboard/receipts', label: 'RECEIPTS' }] : []),
+            ...(hasReceiptAnalysisFlag ? [{ href: '/dashboard/receipts', label: 'RECEIPTS' }] : []),
           ].map(link => (
             <li key={link.href}>
               <Link
