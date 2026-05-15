@@ -352,3 +352,83 @@ All views gated by `receipt_analysis` flag. Routes live under `/dashboard/receip
 - 🟠 **Unit test for import idempotency** — mock Supabase upsert, verify `ON CONFLICT` behaviour
 - 🟡 **Unit tests for health ratio and VAT split SQL helpers** — seed known data, assert output matches expected ratios
 - 🟡 **E2E smoke test** — import 10-receipt slice of `all_receipts_trumf.json`, verify row counts and health ratio endpoint returns valid JSON
+
+---
+
+## Phase 8 — Security, OWASP & API Abuse Hardening
+*Goal: project-wide security posture is reviewed and hardened before broader production use.*
+*Owner agent: `.github/agents/ciso.agent.md`*
+
+---
+
+### Epic 8-A: Project-Wide OWASP Review
+
+- 🔴 **As the product owner, I want a CISO agent to evaluate SpendLens against OWASP principles** so that auth, data isolation, AI, billing, and upload risks are visible before abuse happens.
+  - Review all API routes in `src/app/api/`
+  - Review all Supabase migrations and RLS policies
+  - Review Supabase Storage path and bucket assumptions
+  - Review AI prompt boundaries in `src/lib/ai/`
+  - Review Stripe billing and webhook code in `src/lib/billing/` and `src/app/api/webhooks/stripe/`
+  - Produce findings mapped to OWASP Web/API categories with severity, exploit scenario, and recommended fix
+  - **AC:** A markdown security report exists with every route classified as public/authenticated/webhook/admin-only, and every high-risk finding has a backlog item.
+
+---
+
+### Epic 8-B: API Route Protection Baseline
+
+- 🔴 **As the app, I want every API route to declare and enforce its security posture** so that accidental public access is caught during review.
+  - Add or update route-level checks for auth, ownership, body validation, and error handling
+  - Public routes must be explicitly documented as public
+  - Path IDs such as `uploadId` and transaction IDs must be verified against `user.id` before processing
+  - All errors return JSON without stack traces or provider internals
+  - **AC:** CISO review can list every API route with auth state, owner checks, input validation, and abuse limits.
+
+- 🔴 **As the app, I want expensive API routes protected from resource abuse** so that AI, upload, and billing costs cannot be driven by anonymous or scripted callers.
+  - Add rate limits for AI processing, insights, receipt chat, and upload endpoints
+  - Enforce server-side file size, row count, and receipt count caps
+  - Subscription gates fail closed for missing profile, free-tier over-limit, and `past_due`
+  - **AC:** A free-tier user cannot bypass upload or AI limits by calling API routes directly.
+
+---
+
+### Epic 8-C: Supabase RLS & Storage Audit
+
+- 🔴 **As the app, I want all user-owned tables and files isolated by user** so that one user cannot read or mutate another user's financial data.
+  - Verify every user-owned table has `user_id`, RLS enabled, and owner-scoped policies
+  - Verify insert policies use `WITH CHECK` where users insert rows
+  - Verify all Storage paths include `{user_id}` and bucket policies enforce that prefix
+  - Add missing indexes for owner-scoped queries where needed
+  - **AC:** CISO report confirms no table or storage object containing user data is accessible cross-user under normal Supabase anon/session access.
+
+---
+
+### Epic 8-D: AI & Prompt-Injection Hardening
+
+- 🟠 **As the app, I want AI calls constrained to safe inputs and typed outputs** so that user-controlled transaction, receipt, and chat text cannot steer system behaviour.
+  - Wrap user-controlled data in clear delimiters before model calls
+  - Prefer aggregate summaries over raw rows
+  - Strip obvious PII before prompts
+  - Receipt/chat analysis must use typed analysis intents rather than arbitrary SQL
+  - Add tests for malformed model responses and prompt-injection-like user text
+  - **AC:** AI endpoints reject arbitrary tool/query requests and continue to return valid structured output or a safe error.
+
+---
+
+### Epic 8-E: Secrets, Webhooks & Integrity
+
+- 🟠 **As the app, I want secrets and third-party callbacks handled safely** so that billing and provider credentials cannot be spoofed or exposed.
+  - Confirm service-role key is never used in frontend code
+  - Confirm Stripe webhook raw-body signature verification remains intact
+  - Confirm webhook handlers are idempotent
+  - Add secret scanning guidance to CI or developer docs
+  - **AC:** Invalid Stripe webhook signatures are rejected, duplicate valid events do not corrupt subscription state, and no server-only secret appears in frontend-exposed code.
+
+---
+
+### Epic 8-F: Security Logging & Abuse Monitoring
+
+- 🟡 **As the operator, I want basic security-relevant events logged** so that abuse attempts can be investigated without storing sensitive financial details.
+  - Log auth failures, rate-limit hits, rejected uploads, webhook signature failures, and AI validation failures
+  - Avoid logging raw CSV contents, raw receipt JSON, full prompts, account numbers, or secrets
+  - Add a lightweight incident checklist to production handoff docs
+  - **AC:** Security logs identify actor, route, event type, and timestamp without leaking sensitive user payloads.
