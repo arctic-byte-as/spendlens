@@ -1,4 +1,4 @@
--- Phase 8 security hardening: webhook idempotency + audit trail
+-- Phase 7/8 security hardening: webhook idempotency + audit trail
 
 create table if not exists public.stripe_webhook_events (
   id uuid primary key default gen_random_uuid(),
@@ -22,3 +22,26 @@ create policy "No direct access to stripe webhook events"
   for all
   using (false)
   with check (false);
+
+create or replace function public.mark_stripe_webhook_event(
+  p_event_id text,
+  p_status text,
+  p_error_code text default null
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update public.stripe_webhook_events
+  set
+    status = p_status,
+    error_code = p_error_code,
+    processed_at = case
+      when p_status in ('processed', 'failed') then now()
+      else processed_at
+    end
+  where event_id = p_event_id;
+end;
+$$;

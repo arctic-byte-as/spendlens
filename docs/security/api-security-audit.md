@@ -1,4 +1,4 @@
-# SpendLens API Security Audit (Phase 8 Baseline)
+# SpendLens API Security Audit (Phase 7/8 Baseline)
 
 | Field | Value |
 |---|---|

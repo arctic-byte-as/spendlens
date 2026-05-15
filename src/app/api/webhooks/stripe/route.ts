@@ -32,8 +32,22 @@ export async function POST(request: Request) {
       status: 'received',
     })
 
+  // 23505 = unique_violation for stripe_webhook_events.event_id (duplicate Stripe delivery).
   if (receivedInsertError?.code === '23505') {
-    return NextResponse.json({ received: true, duplicate: true })
+    const { data: existingEvent, error: existingEventError } = await admin
+      .from('stripe_webhook_events')
+      .select('status')
+      .eq('event_id', event.id)
+      .maybeSingle()
+
+    if (existingEventError) {
+      console.error('Failed to load existing webhook event:', existingEventError)
+      return NextResponse.json({ error: 'Webhook processing failed' }, { status: 500 })
+    }
+
+    if (existingEvent?.status === 'processed' || existingEvent?.status === 'received') {
+      return NextResponse.json({ received: true, duplicate: true })
+    }
   }
 
   if (receivedInsertError) {
@@ -43,26 +57,19 @@ export async function POST(request: Request) {
 
   try {
     await handleStripeWebhookEvent(admin, event)
-    await admin
-      .from('stripe_webhook_events')
-      .update({
-        status: 'processed',
-        processed_at: new Date().toISOString(),
-        error_code: null,
-      })
-      .eq('event_id', event.id)
+    await admin.rpc('mark_stripe_webhook_event', {
+      p_event_id: event.id,
+      p_status: 'processed',
+    })
 
     return NextResponse.json({ received: true })
   } catch (error) {
     console.error('Stripe webhook processing failed:', error)
-    await admin
-      .from('stripe_webhook_events')
-      .update({
-        status: 'failed',
-        processed_at: new Date().toISOString(),
-        error_code: 'processing_failed',
-      })
-      .eq('event_id', event.id)
+    await admin.rpc('mark_stripe_webhook_event', {
+      p_event_id: event.id,
+      p_status: 'failed',
+      p_error_code: 'processing_failed',
+    })
 
     return NextResponse.json({ error: 'Webhook processing failed' }, { status: 500 })
   }
