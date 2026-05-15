@@ -2,7 +2,7 @@
 node_modules/
 
 #training data
-receipts/
+/receipts/
 
 # next.js
 .next/

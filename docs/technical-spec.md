@@ -66,6 +66,7 @@ Design aesthetic: **NASA Future + Ferrari Luce** — see §2 for colour tokens a
 │  /api/process/[id] → AI pipeline     │
 │  /api/insights/[id]→ insight fetch   │
 │  /api/transactions/[id] → PATCH      │
+│  /api/receipts/import → Receipt JSON │
 └───────────────┬─────────────────────┘
                 │
         ┌───────┴───────┐
@@ -129,6 +130,39 @@ period_start    date
 period_end      date
 summary_json    jsonb
 top_saving_tips jsonb  -- ordered array of saving recommendations
+```
+
+### `receipts`
+```sql
+id              uuid primary key default gen_random_uuid()
+user_id         uuid references profiles(id) on delete cascade
+receipt_id      text
+date            timestamptz
+store           text
+chain           text
+total_amount    numeric(12,2)
+total_bonus     numeric(12,2)
+savings_summary jsonb
+currency        text default 'NOK'
+imported_at     timestamptz default now()
+```
+
+### `receipt_items`
+```sql
+id            uuid primary key default gen_random_uuid()
+user_id       uuid references profiles(id) on delete cascade
+receipt_id    text
+item_guid     text
+name          text
+quantity      numeric(12,3)
+unit          text
+total_price   numeric(12,2)
+bonus         numeric(12,2)
+bonus_percent numeric(6,2)
+vat_percent   numeric(6,2)
+is_unknown    boolean default false
+savings_amount numeric(12,2) default 0
+created_at    timestamptz default now()
 ```
 
 ### RLS Policy (applied to all tables)
