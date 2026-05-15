@@ -34,14 +34,14 @@ export type ParsedReceiptImportPayload = {
 
 function readNumber(value: unknown, field: string): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) {
-    throw new Error(`Invalid ${field}`)
+    throw new Error(`Invalid ${field}: must be a finite number`)
   }
   return value
 }
 
 function readString(value: unknown, field: string): string {
   if (typeof value !== 'string' || value.trim().length === 0) {
-    throw new Error(`Invalid ${field}`)
+    throw new Error(`Invalid ${field}: must be a non-empty string`)
   }
   return value.trim()
 }
@@ -76,7 +76,7 @@ function readDate(value: unknown): string {
 
 function readItems(value: unknown): RawReceiptItem[] {
   if (!Array.isArray(value) || value.length === 0) {
-    throw new Error('Each receipt must include at least one item')
+    throw new Error('Each receipt must have an items array with at least one item')
   }
 
   return value.map((item, index) => {
@@ -138,14 +138,14 @@ export function parseReceiptsImportPayload(payload: unknown): ParsedReceiptImpor
   }
 
   if (body.receipts.length > MAX_RECEIPTS_PER_REQUEST) {
-    throw new Error(`Maximum ${MAX_RECEIPTS_PER_REQUEST} receipts per request`)
+    throw new Error(`Maximum ${MAX_RECEIPTS_PER_REQUEST} receipts per request (received ${body.receipts.length})`)
   }
 
   const receipts = body.receipts.map(parseReceipt)
   const totalItems = receipts.reduce((sum, receipt) => sum + receipt.items.length, 0)
 
   if (totalItems > MAX_ITEMS_PER_REQUEST) {
-    throw new Error(`Maximum ${MAX_ITEMS_PER_REQUEST} receipt items per request`)
+    throw new Error(`Maximum ${MAX_ITEMS_PER_REQUEST} items per request (received ${totalItems})`)
   }
 
   return { receipts, totalItems }

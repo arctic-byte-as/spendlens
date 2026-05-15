@@ -61,9 +61,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Feature not enabled' }, { status: 403 })
   }
 
+  let requestBody: unknown
+  try {
+    requestBody = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Malformed JSON in request body' }, { status: 400 })
+  }
+
   let parsed: ReturnType<typeof parseReceiptsImportPayload>
   try {
-    parsed = parseReceiptsImportPayload(await request.json())
+    parsed = parseReceiptsImportPayload(requestBody)
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Invalid request body' },
@@ -71,13 +78,13 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const receiptRows: ReceiptInsertRow[] = []
+  const receiptRowById = new Map<string, ReceiptInsertRow>()
   const itemRows: ReceiptItemInsertRow[] = []
   const receiptIds = new Set<string>()
 
   for (const receipt of parsed.receipts) {
     receiptIds.add(receipt.receiptId)
-    receiptRows.push({
+    receiptRowById.set(receipt.receiptId, {
       user_id: user.id,
       receipt_id: receipt.receiptId,
       date: receipt.date,
@@ -107,6 +114,8 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  const receiptRows = Array.from(receiptRowById.values())
+
   const { data: existingReceipts, error: existingReceiptsError } = await supabase
     .from('receipts')
     .select('receipt_id')
@@ -120,7 +129,7 @@ export async function POST(request: NextRequest) {
 
   const existingReceiptIds = new Set((existingReceipts || []).map(row => row.receipt_id))
   const skipped = existingReceiptIds.size
-  const imported = parsed.receipts.length - skipped
+  const imported = receiptRows.length - existingReceiptIds.size
 
   for (const batch of chunk(receiptRows, RECEIPT_BATCH_SIZE)) {
     const { error } = await supabase
