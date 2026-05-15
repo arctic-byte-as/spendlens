@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase/server'
+import { requireAuthenticatedRouteContext } from '@/lib/api/guard'
 import { getRequiredEnv, getStripeClient } from '@/lib/billing/stripe'
 
 export async function POST() {
   try {
-    const supabase = createServerClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const auth = await requireAuthenticatedRouteContext()
+    if (auth instanceof NextResponse) return auth
+    const { supabase, user } = auth
 
     const appUrl = getRequiredEnv('NEXT_PUBLIC_APP_URL')
     const priceId = getRequiredEnv('STRIPE_PRO_PRICE_ID')

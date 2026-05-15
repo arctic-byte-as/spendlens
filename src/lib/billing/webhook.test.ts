@@ -15,6 +15,7 @@ describe('handleStripeWebhookEvent', () => {
           object: {
             customer: 'cus_123',
             client_reference_id: 'user-1',
+            mode: 'subscription',
           },
         },
       } as never

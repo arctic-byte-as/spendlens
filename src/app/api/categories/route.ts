@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase/server'
+import { requireAuthenticatedRouteContext } from '@/lib/api/guard'
 import { isCanonicalCategory, isValidCategoryName } from '@/lib/transactions/categories'
 
 /**
@@ -7,9 +7,9 @@ import { isCanonicalCategory, isValidCategoryName } from '@/lib/transactions/cat
  * Returns the user's custom categories as a sorted string array.
  */
 export async function GET() {
-  const supabase = createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = await requireAuthenticatedRouteContext()
+  if (auth instanceof NextResponse) return auth
+  const { supabase, user } = auth
 
   const { data, error } = await supabase
     .from('user_categories')
@@ -32,9 +32,9 @@ export async function GET() {
  * canonical category and must match the allowed character set.
  */
 export async function POST(request: NextRequest) {
-  const supabase = createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = await requireAuthenticatedRouteContext()
+  if (auth instanceof NextResponse) return auth
+  const { supabase, user } = auth
 
   let body: unknown
   try {

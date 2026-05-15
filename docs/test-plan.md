@@ -196,6 +196,9 @@ After a real CSV import, manually verify a sample of 10–20 transactions:
 | Account numbers stripped before AI | Add a test transaction description with a Norwegian account number; verify Anthropic request payload in logs has it removed |
 | Auth middleware protects routes | Visit `/dashboard`, `/upload`, `/uploads`, `/transactions`, `/settings` without a session — each should redirect to `/` |
 | Environment variable leakage | Check that `ANTHROPIC_API_KEY` is not prefixed with `NEXT_PUBLIC_` and does not appear in `_next/static` bundles |
+| API guard usage baseline | Confirm authenticated API routes use `requireAuthenticatedRouteContext` |
+| Stripe webhook idempotency | Replay same Stripe `event.id` twice; second delivery returns success without a second profile mutation |
+| Stripe webhook failure semantics | Invalid signature returns `400`; internal processing failure returns `500` |
 
 ---
 
@@ -209,3 +212,5 @@ After a real CSV import, manually verify a sample of 10–20 transactions:
 - [ ] Dashboard renders with correct totals
 - [ ] No console errors in browser DevTools on any page
 - [ ] RLS verified: cross-user data access blocked
+- [ ] `docs/security/api-security-audit.md` updated for route-level security posture changes
+- [ ] `docs/security/sdlc-security-baseline.md` controls reviewed for this PR

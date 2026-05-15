@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase/server'
+import { requireAuthenticatedRouteContext } from '@/lib/api/guard'
 import { parseTransactionPatchPayload } from './payload'
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const supabase = createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = await requireAuthenticatedRouteContext()
+  if (auth instanceof NextResponse) return auth
+  const { supabase, user } = auth
 
   let payload: ReturnType<typeof parseTransactionPatchPayload>
   try {
@@ -60,9 +60,9 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const supabase = createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = await requireAuthenticatedRouteContext()
+  if (auth instanceof NextResponse) return auth
+  const { supabase, user } = auth
 
   const { data: deleted, error: deleteError } = await supabase
     .from('transactions')

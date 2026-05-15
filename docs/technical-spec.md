@@ -263,6 +263,8 @@ npm run lint      # ESLint
 | AI prompt safety | Strip account numbers/IBANs client-side before API route; never include user PII in prompts |
 | Session security | Supabase JWT, 1hr expiry, refresh token rotation; Next.js middleware protects `/dashboard/*` |
 | Account deletion | `ON DELETE CASCADE` removes all user data; surfaced in `/settings` |
+| API auth baseline | Authenticated API routes use `requireAuthenticatedRouteContext` guard helper |
+| Webhook integrity | Stripe webhooks are signature-verified and idempotency-tracked in `stripe_webhook_events` |
 
 ---
 
@@ -272,3 +274,10 @@ npm run lint      # ESLint
 - No budget targets or goal tracking (v1 non-goal)
 - Mobile layout is desktop-first only — responsive design pass needed
 - No period-over-period comparison in dashboard yet
+
+---
+
+## 12. Security Artifacts
+
+- `docs/security/api-security-audit.md` — full API inventory with auth/ownership/validation posture
+- `docs/security/sdlc-security-baseline.md` — SDLC security requirements and PR audit evidence expectations

@@ -93,7 +93,19 @@ RLS remains `USING (user_id = auth.uid())` — no change.
 | `invoice.payment_failed` | Set `subscription_status = 'past_due'` |
 
 - **Security:** reject any request where `stripe.webhooks.constructEvent` throws. Return `400`.
-- **Idempotency:** use `event.id` — safe to process the same event twice.
+- **Idempotency + audit trail:** persist every `event.id` in `stripe_webhook_events` (unique). Duplicate events return success without reprocessing profile updates.
+- **Reliability:** return `500` for internal processing failures so Stripe retries.
+
+### `stripe_webhook_events` (security log)
+```sql
+event_id     text unique
+event_type   text
+livemode     boolean
+status       text      -- received | processed | failed
+error_code   text
+received_at  timestamptz
+processed_at timestamptz
+```
 
 ---
 
