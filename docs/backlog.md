@@ -172,6 +172,7 @@
 - 🟡 **Empty state improvements** — better onboarding for first-time users
 - 🟡 **Account deletion** — `DELETE MY ACCOUNT` in `/settings` with cascade
 - 🟢 **CI pipeline** — GitHub Actions running `npm test` + `npm run build` on every push to `main`
+- 🟠 **Automated Supabase migrations** — validate migrations in PRs and deploy pending production migrations from CI after merge to `main`, protected by a GitHub `production` environment approval gate. See [`docs/issues/2026-05-16-automate-supabase-migrations.md`](issues/2026-05-16-automate-supabase-migrations.md).
 - 🟢 **Error monitoring** — Sentry free tier on the frontend
 - 🟢 **Uptime monitoring** — UptimeRobot or Cloudflare Health Check on the production URL
 
