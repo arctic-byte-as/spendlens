@@ -21,3 +21,9 @@ Use GitHub cloud agents to build the smallest production-trial version of SpendL
 2. Setup instructions for local and deployed environments.
 3. A list of accounts/secrets needed to operate the app.
 4. A documented deploy path for a production trial.
+
+## Security handoff artifacts (required)
+
+- API security inventory: `docs/security/api-security-audit.md`
+- SDLC security baseline and evidence expectations: `docs/security/sdlc-security-baseline.md`
+- Stripe billing/webhook security controls: `docs/payments.md`

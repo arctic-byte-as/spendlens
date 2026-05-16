@@ -66,6 +66,7 @@ Design aesthetic: **NASA Future + Ferrari Luce** — see §2 for colour tokens a
 │  /api/process/[id] → AI pipeline     │
 │  /api/insights/[id]→ insight fetch   │
 │  /api/transactions/[id] → PATCH      │
+│  /api/receipts/import → Receipt JSON │
 └───────────────┬─────────────────────┘
                 │
         ┌───────┴───────┐
@@ -87,6 +88,7 @@ Design aesthetic: **NASA Future + Ferrari Luce** — see §2 for colour tokens a
 id           uuid  references auth.users primary key
 email        text
 display_name text
+feature_flags jsonb default '{}' -- per-user feature toggles, e.g. {"receipt_analysis": true}
 created_at   timestamptz default now()
 ```
 
@@ -128,6 +130,39 @@ period_start    date
 period_end      date
 summary_json    jsonb
 top_saving_tips jsonb  -- ordered array of saving recommendations
+```
+
+### `receipts`
+```sql
+id              uuid primary key default gen_random_uuid()
+user_id         uuid references profiles(id) on delete cascade
+receipt_id      text
+date            timestamptz
+store           text
+chain           text
+total_amount    numeric(12,2)
+total_bonus     numeric(12,2)
+savings_summary jsonb
+currency        text default 'NOK'
+imported_at     timestamptz default now()
+```
+
+### `receipt_items`
+```sql
+id            uuid primary key default gen_random_uuid()
+user_id       uuid references profiles(id) on delete cascade
+receipt_id    text
+item_guid     text
+name          text
+quantity      numeric(12,3)
+unit          text
+total_price   numeric(12,2)
+bonus         numeric(12,2)
+bonus_percent numeric(6,2)
+vat_percent   numeric(6,2)
+is_unknown    boolean default false
+savings_amount numeric(12,2) default 0
+created_at    timestamptz default now()
 ```
 
 ### RLS Policy (applied to all tables)
@@ -184,6 +219,7 @@ USING (user_id = auth.uid())
 /                       Landing + sign-in
 /auth/callback          Magic link handler
 /dashboard              Main view (redirects to /upload if no data)
+/dashboard/receipts     Receipt analysis workspace (feature-flagged: receipt_analysis)
 /upload                 CSV import wizard (3 steps)
 /uploads                Import history
 /transactions           Full transaction table
@@ -227,6 +263,8 @@ npm run lint      # ESLint
 | AI prompt safety | Strip account numbers/IBANs client-side before API route; never include user PII in prompts |
 | Session security | Supabase JWT, 1hr expiry, refresh token rotation; Next.js middleware protects `/dashboard/*` |
 | Account deletion | `ON DELETE CASCADE` removes all user data; surfaced in `/settings` |
+| API auth baseline | Authenticated API routes use `requireAuthenticatedRouteContext` guard helper |
+| Webhook integrity | Stripe webhooks are signature-verified and idempotency-tracked in `stripe_webhook_events` |
 
 ---
 
@@ -236,3 +274,10 @@ npm run lint      # ESLint
 - No budget targets or goal tracking (v1 non-goal)
 - Mobile layout is desktop-first only — responsive design pass needed
 - No period-over-period comparison in dashboard yet
+
+---
+
+## 12. Security Artifacts
+
+- `docs/security/api-security-audit.md` — full API inventory with auth/ownership/validation posture
+- `docs/security/sdlc-security-baseline.md` — SDLC security requirements and PR audit evidence expectations

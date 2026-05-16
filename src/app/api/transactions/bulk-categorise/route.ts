@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase/server'
+import { requireAuthenticatedRouteContext } from '@/lib/api/guard'
 import { isCanonicalCategory, isValidCategoryName } from '@/lib/transactions/categories'
 
 /**
@@ -14,9 +14,9 @@ import { isCanonicalCategory, isValidCategoryName } from '@/lib/transactions/cat
  * Returns: { updated: number, ids: string[] }
  */
 export async function POST(request: NextRequest) {
-  const supabase = createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = await requireAuthenticatedRouteContext()
+  if (auth instanceof NextResponse) return auth
+  const { supabase, user } = auth
 
   let body: unknown
   try {

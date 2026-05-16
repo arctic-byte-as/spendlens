@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase/server'
+import { requireAuthenticatedRouteContext } from '@/lib/api/guard'
 import { categoriseTransactionBatches, type CategorisationResult } from '@/lib/ai/categorise'
 import { generateInsights } from '@/lib/ai/insights'
+import { evaluateBillingGate } from '@/lib/billing/gate'
 
 type TransactionForAi = {
   id: string
@@ -16,11 +17,36 @@ export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const supabase = createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = await requireAuthenticatedRouteContext()
+  if (auth instanceof NextResponse) return auth
+  const { supabase, user } = auth
 
   const uploadId = params.id
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('subscription_status, subscription_tier')
+    .eq('id', user.id)
+    .maybeSingle()
+
+  const { count: completedUploads } = await supabase
+    .from('uploads')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+    .eq('status', 'done')
+
+  const gate = evaluateBillingGate({
+    profile: {
+      subscription_status: profile?.subscription_status ?? 'free',
+      subscription_tier: profile?.subscription_tier ?? 'free',
+    },
+    completedUploads: completedUploads || 0,
+    isInsightsRoute: true,
+  })
+
+  if (!gate.allowed) {
+    return NextResponse.json({ error: gate.error }, { status: 402 })
+  }
 
   const { data: upload, error: uploadError } = await supabase
     .from('uploads')

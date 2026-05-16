@@ -37,7 +37,15 @@ export async function handleStripeWebhookEvent(supabase: SupabaseLike, event: St
   switch (event.type) {
     case 'checkout.session.completed': {
       const session = event.data.object as Stripe.Checkout.Session
-      if (!session.customer) return
+      if (!session.customer || session.mode !== 'subscription' || !session.client_reference_id) {
+        console.warn('Ignoring checkout.session.completed with invalid payload', {
+          eventId: event.id,
+          customer: session.customer ? 'present' : 'missing',
+          mode: session.mode,
+          clientReferenceId: session.client_reference_id ? 'present' : 'missing',
+        })
+        return
+      }
 
       const values: Record<string, unknown> = {
         stripe_customer_id: typeof session.customer === 'string' ? session.customer : session.customer.id,
@@ -45,14 +53,12 @@ export async function handleStripeWebhookEvent(supabase: SupabaseLike, event: St
         subscription_tier: 'pro',
       }
 
-      if (session.client_reference_id) {
-        const { error } = await supabase
-          .from('profiles')
-          .update(values)
-          .eq('id', session.client_reference_id)
+      const { error } = await supabase
+        .from('profiles')
+        .update(values)
+        .eq('id', session.client_reference_id)
 
-        if (error) throw new Error(error.message)
-      }
+      if (error) throw new Error(error.message)
       return
     }
 

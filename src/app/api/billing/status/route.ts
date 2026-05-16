@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase/server'
+import { requireAuthenticatedRouteContext } from '@/lib/api/guard'
 import { evaluateBillingGate } from '@/lib/billing/gate'
 import { FREE_TIER_TRANSACTION_LIMIT } from '@/lib/billing/constants'
 
 export async function GET() {
-  const supabase = createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = await requireAuthenticatedRouteContext()
+  if (auth instanceof NextResponse) return auth
+  const { supabase, user } = auth
 
   const [{ data: profile, error: profileError }, { count: uploadCount, error: uploadError }] = await Promise.all([
     supabase
