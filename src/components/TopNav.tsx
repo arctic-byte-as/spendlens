@@ -65,6 +65,7 @@ export default async function TopNav() {
             { href: '/uploads', label: 'HISTORY' },
             { href: '/transactions', label: 'TRANSACTIONS' },
             ...(hasReceiptAnalysisFlag ? [{ href: '/dashboard/receipts', label: 'RECEIPTS' }] : []),
+            ...(hasReceiptAnalysisFlag ? [{ href: '/dashboard/receipts/import', label: 'IMPORT RECEIPTS' }] : []),
           ].map(link => (
             <li key={link.href}>
               <Link

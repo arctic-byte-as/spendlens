@@ -161,13 +161,13 @@ export default async function ReceiptAnalysisPage({
             NO RECEIPTS IMPORTED
           </div>
           <div style={{ color: 'var(--muted)', fontSize: '12px', marginBottom: '24px' }}>
-            Import receipt data to unlock monthly chain, basket health, VAT and savings analytics.
+            Import Trumf receipt JSON to unlock monthly chain, basket health, VAT and savings analytics.
           </div>
           <Link
-            href="/upload"
+            href="/dashboard/receipts/import"
             style={actionButtonStyle}
           >
-            IMPORT DATA
+            IMPORT RECEIPTS
           </Link>
         </div>
       </div>
@@ -178,6 +178,9 @@ export default async function ReceiptAnalysisPage({
     <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '40px', display: 'grid', gap: '42px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={panelTitle}>Receipt Analysis</div>
+        <Link href="/dashboard/receipts/import" style={actionButtonStyle}>
+          + IMPORT RECEIPTS
+        </Link>
       </div>
 
       <section>
