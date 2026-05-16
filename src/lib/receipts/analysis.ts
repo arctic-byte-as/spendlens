@@ -64,6 +64,21 @@ export type TopPurchasedItem = {
   receiptCount: number
 }
 
+// Backlog Epic 7-D defines health index as spend share where bonus_percent >= 15.
+const HEALTHY_BONUS_THRESHOLD = 15
+// Norway grocery VAT assumption: 15% = food.
+const FOOD_VAT_PERCENT = 15
+// Norway grocery VAT assumption: 25% = non-food.
+const NON_FOOD_VAT_PERCENT = 25
+// Track price trends for regular each-unit purchases.
+const TRACKABLE_UNIT = 'EA'
+// Backlog requirement: item must be purchased at least 3 times to appear in trend tracking.
+const MIN_PURCHASES_FOR_TREND = 3
+// Highlight monthly item price increases greater than 10%.
+const SIGNIFICANT_PRICE_INCREASE_THRESHOLD = 0.1
+// Backlog requirement: top 50 purchased items by spend.
+const TOP_ITEMS_LIMIT = 50
+
 function toNumber(value: number | string): number {
   const parsed = typeof value === 'number' ? value : Number(value)
   return Number.isFinite(parsed) ? parsed : 0
@@ -93,7 +108,23 @@ function createReceiptMonthMap(receipts: ReceiptAnalysisRow[]): Map<string, stri
 }
 
 export function getCurrency(receipts: ReceiptAnalysisRow[]): string {
-  return receipts.find(receipt => receipt.currency)?.currency ?? 'NOK'
+  // Prefer the most common currency for the selected receipt set. If unavailable, default to NOK.
+  const counts = new Map<string, number>()
+  for (const receipt of receipts) {
+    const currency = receipt.currency
+    if (!currency) continue
+    counts.set(currency, (counts.get(currency) ?? 0) + 1)
+  }
+
+  let selected = 'NOK'
+  let selectedCount = 0
+  for (const [currency, count] of Array.from(counts.entries())) {
+    if (count > selectedCount) {
+      selected = currency
+      selectedCount = count
+    }
+  }
+  return selected
 }
 
 export function getMonthlyChainSpend(receipts: ReceiptAnalysisRow[]): MonthlyChainSpend[] {
@@ -132,7 +163,7 @@ export function getMonthlyHealthRatio(
     const current = monthly.get(month) ?? { healthySpend: 0, totalSpend: 0 }
     const spend = spendValue(item.total_price)
     current.totalSpend += spend
-    if (toNumber(item.bonus_percent) >= 15) {
+    if (toNumber(item.bonus_percent) >= HEALTHY_BONUS_THRESHOLD) {
       current.healthySpend += spend
     }
     monthly.set(month, current)
@@ -161,8 +192,8 @@ export function getMonthlyVatSplit(
     const spend = spendValue(item.total_price)
     const current = monthly.get(month) ?? { foodSpend: 0, nonFoodSpend: 0 }
 
-    if (vat === 15) current.foodSpend += spend
-    if (vat === 25) current.nonFoodSpend += spend
+    if (vat === FOOD_VAT_PERCENT) current.foodSpend += spend
+    if (vat === NON_FOOD_VAT_PERCENT) current.nonFoodSpend += spend
 
     monthly.set(month, current)
   }
@@ -213,7 +244,7 @@ export function getItemPriceTrends(
     const month = receiptMonths.get(item.receipt_id)
     if (!month) continue
     const unit = item.unit?.trim().toUpperCase()
-    if (unit !== 'EA') continue
+    if (unit !== TRACKABLE_UNIT) continue
 
     const group = byItem.get(item.name) ?? []
     group.push(item)
@@ -223,7 +254,7 @@ export function getItemPriceTrends(
   const trends: ItemPriceTrend[] = []
 
   for (const [itemName, rows] of Array.from(byItem.entries())) {
-    if (rows.length < 3) continue
+    if (rows.length < MIN_PURCHASES_FOR_TREND) continue
 
     const monthly = new Map<string, { totalPrice: number; totalQty: number }>()
     for (const row of rows) {
@@ -261,7 +292,8 @@ export function getItemPriceTrends(
       return {
         ...row,
         increaseVsPreviousPct,
-        increasedOverTenPercent: increaseVsPreviousPct > 0.1,
+        increasedOverTenPercent:
+          increaseVsPreviousPct > SIGNIFICANT_PRICE_INCREASE_THRESHOLD,
       }
     })
 
@@ -306,5 +338,5 @@ export function getTopPurchasedItems(items: ReceiptItemAnalysisRow[]): TopPurcha
       receiptCount: value.receiptIds.size,
     }))
     .sort((a, b) => b.totalSpend - a.totalSpend)
-    .slice(0, 50)
+    .slice(0, TOP_ITEMS_LIMIT)
 }

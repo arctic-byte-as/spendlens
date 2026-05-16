@@ -18,6 +18,12 @@ type SearchParams = Record<string, string | string[] | undefined>
 
 type SortKey = 'name' | 'qty' | 'spend' | 'receipts'
 type SortDirection = 'asc' | 'desc'
+const SORT_KEYS: SortKey[] = ['name', 'qty', 'spend', 'receipts']
+const SORT_DIRECTIONS: SortDirection[] = ['asc', 'desc']
+// Epic 7-D benchmark line from backlog: 0.30 target for health ratio trend.
+const HEALTH_RATIO_TARGET = 0.3
+// Epic 7-D positive highlight threshold for monthly campaign savings rate.
+const GOOD_SAVINGS_RATE_THRESHOLD = 0.15
 
 function getSingle(value: string | string[] | undefined): string | undefined {
   if (Array.isArray(value)) return value[0]
@@ -59,6 +65,20 @@ function sortTopItems(
 function nextDirection(currentKey: SortKey, currentDir: SortDirection, clicked: SortKey): SortDirection {
   if (currentKey !== clicked) return clicked === 'name' ? 'asc' : 'desc'
   return currentDir === 'asc' ? 'desc' : 'asc'
+}
+
+function parseSort(value: string | undefined): SortKey {
+  if (value && SORT_KEYS.includes(value as SortKey)) {
+    return value as SortKey
+  }
+  return 'spend'
+}
+
+function parseDirection(value: string | undefined): SortDirection {
+  if (value && SORT_DIRECTIONS.includes(value as SortDirection)) {
+    return value as SortDirection
+  }
+  return 'desc'
 }
 
 export default async function ReceiptAnalysisPage({
@@ -106,8 +126,8 @@ export default async function ReceiptAnalysisPage({
   const priceTrends = getItemPriceTrends(receipts, items)
   const topPurchased = getTopPurchasedItems(items)
 
-  const currentSort = (getSingle(searchParams?.sort) as SortKey) || 'spend'
-  const currentDir = (getSingle(searchParams?.dir) as SortDirection) || 'desc'
+  const currentSort = parseSort(getSingle(searchParams?.sort))
+  const currentDir = parseDirection(getSingle(searchParams?.dir))
   const sortedTopItems = sortTopItems(topPurchased, currentSort, currentDir)
 
   const maxChainSpend = Math.max(...chainMonthly.map(row => row.spend), 1)
@@ -187,10 +207,10 @@ export default async function ReceiptAnalysisPage({
           {healthMonthly.map(row => (
             <div key={row.month} style={{ display: 'grid', gridTemplateColumns: '120px 1fr auto auto', gap: '12px', alignItems: 'center' }}>
               <div style={{ fontFamily: 'Orbitron, sans-serif', fontSize: '8px', letterSpacing: '0.12em', color: 'var(--muted)' }}>{monthLabel(row.month)}</div>
-              <div style={{ position: 'relative', height: '8px', background: 'var(--grid-line)' }}>
-                <div style={{ position: 'absolute', inset: 0, width: `${Math.max(row.ratio * 100, 1)}%`, background: 'var(--positive)' }} />
-                <div style={{ position: 'absolute', inset: 0, width: '30%', borderRight: '1px dashed var(--bronze)' }} />
-              </div>
+                <div style={{ position: 'relative', height: '8px', background: 'var(--grid-line)' }}>
+                  <div style={{ position: 'absolute', inset: 0, width: `${Math.max(row.ratio * 100, 1)}%`, background: 'var(--positive)' }} />
+                  <div style={{ position: 'absolute', inset: 0, width: `${HEALTH_RATIO_TARGET * 100}%`, borderRight: '1px dashed var(--bronze)' }} />
+                </div>
               <div style={{ fontFamily: 'DM Mono, monospace', fontSize: '11px', color: 'var(--carbon)', minWidth: '65px', textAlign: 'right' }}>
                 {formatPct(row.ratio)}
               </div>
@@ -257,9 +277,9 @@ export default async function ReceiptAnalysisPage({
             <div key={row.month} style={{ display: 'grid', gridTemplateColumns: '120px 1fr auto auto', gap: '12px', alignItems: 'center' }}>
               <div style={{ fontFamily: 'Orbitron, sans-serif', fontSize: '8px', letterSpacing: '0.12em', color: 'var(--muted)' }}>{monthLabel(row.month)}</div>
               <div style={{ position: 'relative', height: '8px', background: 'var(--grid-line)' }}>
-                <div style={{ position: 'absolute', inset: 0, width: `${Math.max(row.rate * 100, 1)}%`, background: row.rate >= 0.15 ? 'var(--positive)' : 'var(--bronze)' }} />
+                <div style={{ position: 'absolute', inset: 0, width: `${Math.max(row.rate * 100, 1)}%`, background: row.rate >= GOOD_SAVINGS_RATE_THRESHOLD ? 'var(--positive)' : 'var(--bronze)' }} />
               </div>
-              <div style={{ fontFamily: 'DM Mono, monospace', fontSize: '11px', color: row.rate >= 0.15 ? 'var(--positive)' : 'var(--carbon)', minWidth: '65px', textAlign: 'right' }}>{formatPct(row.rate)}</div>
+              <div style={{ fontFamily: 'DM Mono, monospace', fontSize: '11px', color: row.rate >= GOOD_SAVINGS_RATE_THRESHOLD ? 'var(--positive)' : 'var(--carbon)', minWidth: '65px', textAlign: 'right' }}>{formatPct(row.rate)}</div>
               <div style={{ fontFamily: 'DM Mono, monospace', fontSize: '11px', color: 'var(--muted)', minWidth: '220px', textAlign: 'right' }}>
                 {formatCurrency(row.savings, currency)} saved / {formatCurrency(row.grossSpend + row.savings, currency)} baseline
               </div>
