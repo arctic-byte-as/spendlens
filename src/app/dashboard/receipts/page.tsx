@@ -38,6 +38,10 @@ function formatPct(value: number): string {
   return `${Math.round(value * 100)}%`
 }
 
+function roundToThreeDecimals(value: number): number {
+  return Math.round(value * 1000) / 1000
+}
+
 function sortTopItems(
   items: ReturnType<typeof getTopPurchasedItems>,
   key: SortKey,
@@ -118,6 +122,16 @@ export default async function ReceiptAnalysisPage({
     textTransform: 'uppercase',
   }
 
+  const actionButtonStyle: React.CSSProperties = {
+    fontFamily: 'Orbitron, sans-serif',
+    fontSize: '9px',
+    letterSpacing: '0.2em',
+    padding: '10px 24px',
+    background: 'var(--prancing-horse)',
+    color: 'white',
+    textDecoration: 'none',
+  }
+
   if (receipts.length === 0) {
     return (
       <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '40px' }}>
@@ -131,7 +145,7 @@ export default async function ReceiptAnalysisPage({
           </div>
           <Link
             href="/upload"
-            style={{ fontFamily: 'Orbitron, sans-serif', fontSize: '9px', letterSpacing: '0.2em', padding: '10px 24px', background: 'var(--prancing-horse)', color: 'white', textDecoration: 'none' }}
+            style={actionButtonStyle}
           >
             IMPORT DATA
           </Link>
@@ -286,7 +300,7 @@ export default async function ReceiptAnalysisPage({
             {sortedTopItems.map(row => (
               <tr key={row.name}>
                 <td style={{ borderTop: '1px solid var(--grid-line)', padding: '10px 0', fontSize: '12px', color: 'var(--carbon)' }}>{row.name}</td>
-                <td style={{ borderTop: '1px solid var(--grid-line)', padding: '10px 0', textAlign: 'right', fontFamily: 'DM Mono, monospace', fontSize: '11px' }}>{Math.round(row.totalQty * 1000) / 1000}</td>
+                <td style={{ borderTop: '1px solid var(--grid-line)', padding: '10px 0', textAlign: 'right', fontFamily: 'DM Mono, monospace', fontSize: '11px' }}>{roundToThreeDecimals(row.totalQty)}</td>
                 <td style={{ borderTop: '1px solid var(--grid-line)', padding: '10px 0', textAlign: 'right', fontFamily: 'DM Mono, monospace', fontSize: '11px' }}>{formatCurrency(row.totalSpend, currency)}</td>
                 <td style={{ borderTop: '1px solid var(--grid-line)', padding: '10px 0', textAlign: 'right', fontFamily: 'DM Mono, monospace', fontSize: '11px' }}>{row.receiptCount}</td>
               </tr>
