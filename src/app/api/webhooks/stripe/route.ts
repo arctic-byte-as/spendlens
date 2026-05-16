@@ -45,12 +45,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Webhook processing failed' }, { status: 500 })
     }
 
-    if (existingEvent?.status === 'processed' || existingEvent?.status === 'received') {
+    if (existingEvent?.status === 'processed') {
       return NextResponse.json({ received: true, duplicate: true })
     }
   }
 
-  if (receivedInsertError) {
+  if (receivedInsertError && receivedInsertError.code !== '23505') {
     console.error('Failed to persist webhook receipt:', receivedInsertError)
     return NextResponse.json({ error: 'Webhook processing failed' }, { status: 500 })
   }

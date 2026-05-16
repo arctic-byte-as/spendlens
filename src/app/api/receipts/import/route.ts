@@ -128,10 +128,16 @@ export async function POST(request: NextRequest) {
   }
 
   const existingReceiptIds = new Set((existingReceipts || []).map(row => row.receipt_id))
-  const skipped = existingReceiptIds.size
-  const imported = receiptRows.length - existingReceiptIds.size
+  const newReceiptIds = new Set(
+    Array.from(receiptIds).filter(receiptId => !existingReceiptIds.has(receiptId)),
+  )
+  const receiptRowsToInsert = receiptRows.filter(row => newReceiptIds.has(row.receipt_id))
+  const itemRowsToInsert = itemRows.filter(row => newReceiptIds.has(row.receipt_id))
 
-  for (const batch of chunk(receiptRows, RECEIPT_BATCH_SIZE)) {
+  const skipped = existingReceiptIds.size
+  const imported = receiptRowsToInsert.length
+
+  for (const batch of chunk(receiptRowsToInsert, RECEIPT_BATCH_SIZE)) {
     const { error } = await supabase
       .from('receipts')
       .upsert(batch, { onConflict: 'user_id,receipt_id' })
@@ -142,7 +148,7 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  for (const batch of chunk(itemRows, ITEM_BATCH_SIZE)) {
+  for (const batch of chunk(itemRowsToInsert, ITEM_BATCH_SIZE)) {
     const { error } = await supabase
       .from('receipt_items')
       .upsert(batch, {

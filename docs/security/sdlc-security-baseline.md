@@ -15,6 +15,7 @@
    - User-owned records must enforce owner filters in queries in addition to RLS.
    - Public webhooks must verify source signatures.
    - Test-auth bootstrap endpoints must be disabled in production (`NODE_ENV`/`VERCEL_ENV`) and require signed short-lived requests.
+   - Server-enforced feature flags must be backed by DB privileges that prevent self-service mutation by end users.
 3. **Validation gates**
    - Run `npm run lint`, `npm test`, and `npm run build` on each security-relevant change.
    - Run parallel validation (Code Review + CodeQL) before finalizing.

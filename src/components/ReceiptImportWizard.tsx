@@ -11,8 +11,28 @@ import {
 
 type ImportStatus = 'idle' | 'ready' | 'importing' | 'done' | 'error'
 
-function formatCurrency(amount: number): string {
-  return `${Math.round(amount).toLocaleString('nb-NO')} NOK`
+function resolveDisplayCurrency(receipts: ReceiptImportReceipt[]): string {
+  const counts = new Map<string, number>()
+
+  for (const receipt of receipts) {
+    const currency = (receipt.currency || 'NOK').toUpperCase()
+    counts.set(currency, (counts.get(currency) || 0) + 1)
+  }
+
+  let selectedCurrency = 'NOK'
+  let selectedCount = -1
+  counts.forEach((count, currency) => {
+    if (count > selectedCount) {
+      selectedCurrency = currency
+      selectedCount = count
+    }
+  })
+
+  return selectedCurrency
+}
+
+function formatCurrency(amount: number, currency: string): string {
+  return `${Math.round(amount).toLocaleString('nb-NO')} ${currency}`
 }
 
 function formatDate(value: string | null): string {
@@ -35,6 +55,10 @@ export default function ReceiptImportWizard() {
   const [dragOver, setDragOver] = useState(false)
 
   const previewRows = useMemo(() => preview?.receipts.slice(0, 5) || [], [preview])
+  const summaryCurrency = useMemo(
+    () => resolveDisplayCurrency(preview?.receipts || []),
+    [preview],
+  )
 
   const readFiles = useCallback(async (selectedFiles: File[]) => {
     setErrorMsg('')
@@ -175,7 +199,7 @@ export default function ReceiptImportWizard() {
                 ['RECEIPTS', preview.receiptCount.toLocaleString('nb-NO')],
                 ['DATE RANGE', `${formatDate(preview.dateFrom)} – ${formatDate(preview.dateTo)}`],
                 ['CHAINS', preview.chains.join(', ') || '—'],
-                ['SPEND', formatCurrency(preview.totalSpend)],
+                ['SPEND', formatCurrency(preview.totalSpend, summaryCurrency)],
                 ['LINE ITEMS', preview.totalItems.toLocaleString('nb-NO')],
               ].map(([label, value]) => (
                 <div key={label} style={metricBox}>
@@ -213,7 +237,9 @@ export default function ReceiptImportWizard() {
                       <td style={{ padding: '9px', borderBottom: '1px solid var(--grid-line)' }}>{receipt.store}</td>
                       <td style={{ padding: '9px', borderBottom: '1px solid var(--grid-line)' }}>{receipt.chain}</td>
                       <td style={{ padding: '9px', borderBottom: '1px solid var(--grid-line)' }}>{receipt.items.length.toLocaleString('nb-NO')}</td>
-                      <td style={{ padding: '9px', borderBottom: '1px solid var(--grid-line)' }}>{formatCurrency(receipt.totalAmount)}</td>
+                      <td style={{ padding: '9px', borderBottom: '1px solid var(--grid-line)' }}>
+                        {formatCurrency(receipt.totalAmount, (receipt.currency || 'NOK').toUpperCase())}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
