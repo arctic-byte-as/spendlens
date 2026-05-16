@@ -20,7 +20,7 @@ function resolveDisplayCurrency(receipts: ReceiptImportReceipt[]): string {
   }
 
   let selectedCurrency = 'NOK'
-  let selectedCount = -1
+  let selectedCount = 0
   counts.forEach((count, currency) => {
     if (count > selectedCount) {
       selectedCurrency = currency

@@ -3,6 +3,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getRequiredEnv, getStripeClient } from '@/lib/billing/stripe'
 import { handleStripeWebhookEvent } from '@/lib/billing/webhook'
 
+const PG_UNIQUE_VIOLATION = '23505'
+
 export async function POST(request: Request) {
   const stripe = getStripeClient()
   const signature = request.headers.get('stripe-signature')
@@ -33,7 +35,7 @@ export async function POST(request: Request) {
     })
 
   // 23505 = unique_violation for stripe_webhook_events.event_id (duplicate Stripe delivery).
-  if (receivedInsertError?.code === '23505') {
+  if (receivedInsertError?.code === PG_UNIQUE_VIOLATION) {
     const { data: existingEvent, error: existingEventError } = await admin
       .from('stripe_webhook_events')
       .select('status')
@@ -50,7 +52,8 @@ export async function POST(request: Request) {
     }
   }
 
-  if (receivedInsertError && receivedInsertError.code !== '23505') {
+  // 23505 = unique_violation for stripe_webhook_events.event_id (duplicate Stripe delivery).
+  if (receivedInsertError && receivedInsertError.code !== PG_UNIQUE_VIOLATION) {
     console.error('Failed to persist webhook receipt:', receivedInsertError)
     return NextResponse.json({ error: 'Webhook processing failed' }, { status: 500 })
   }

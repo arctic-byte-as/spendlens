@@ -2,6 +2,7 @@ export const FEATURE_FLAGS = ['receipt_analysis'] as const
 
 export type FeatureFlag = (typeof FEATURE_FLAGS)[number]
 
+// Feature flags are stored as JSON and treated as untrusted runtime input.
 type FeatureFlagRecord = Partial<Record<FeatureFlag, unknown>>
 
 type FeatureProfile = {

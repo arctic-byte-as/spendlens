@@ -128,9 +128,12 @@ export async function POST(request: NextRequest) {
   }
 
   const existingReceiptIds = new Set((existingReceipts || []).map(row => row.receipt_id))
-  const newReceiptIds = new Set(
-    Array.from(receiptIds).filter(receiptId => !existingReceiptIds.has(receiptId)),
-  )
+  const newReceiptIds = new Set<string>()
+  receiptIds.forEach(receiptId => {
+    if (!existingReceiptIds.has(receiptId)) {
+      newReceiptIds.add(receiptId)
+    }
+  })
   const receiptRowsToInsert = receiptRows.filter(row => newReceiptIds.has(row.receipt_id))
   const itemRowsToInsert = itemRows.filter(row => newReceiptIds.has(row.receipt_id))
 
