@@ -26,7 +26,7 @@ describe('test auth bypass', () => {
     }
   })
 
-  afterAll(() => {
+  afterEach(() => {
     process.env = originalEnv
   })
 

@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from 'crypto'
 
-const TEST_AUTH_ENABLED = 'true'
+const TEST_AUTH_ENABLED_VALUE = 'true'
 const MAX_TEST_AUTH_SKEW_MS = 60_000
 const TEST_AUTH_PROFILES = ['owner', 'friend'] as const
 
@@ -22,7 +22,7 @@ function isProductionEnvironment(): boolean {
 }
 
 export function isTestAuthBypassEnabled(): boolean {
-  return process.env.SPENDLENS_TEST_AUTH_ENABLED === TEST_AUTH_ENABLED && !isProductionEnvironment()
+  return process.env.SPENDLENS_TEST_AUTH_ENABLED === TEST_AUTH_ENABLED_VALUE && !isProductionEnvironment()
 }
 
 function parseTestAuthPayload(encodedPayload: string): TestAuthPayload | null {
