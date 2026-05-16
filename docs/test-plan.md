@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Status | Living document |
-| Last updated | 2026-05-14 |
+| Last updated | 2026-05-16 |
 | Test runner | Jest (unit), manual (integration + E2E) |
 
 ---
@@ -129,6 +129,14 @@ Run these in a browser against `http://localhost:3000` (dev) or the Vercel previ
 - [ ] Refresh `/dashboard` — still authenticated (session persists)
 - [ ] Navigate to `/` while authenticated — should redirect to `/dashboard` or show signed-in state
 - [ ] Visit `/dashboard` in incognito (no session) → redirected to `/`
+
+### 4.1.1 Local/CI test-auth bootstrap (non-production only)
+
+- [ ] Set required test-auth env vars (`SPENDLENS_TEST_AUTH_ENABLED=true`, `TEST_AUTH_HMAC_SECRET`, `TEST_AUTH_OWNER_EMAIL/PASSWORD`, `TEST_AUTH_FRIEND_EMAIL/PASSWORD`)
+- [ ] Build signed `x-spendlens-test-auth` payload `{ profile, ts, nonce }` and `x-spendlens-test-auth-signature` (HMAC-SHA256 over payload)
+- [ ] `POST /api/test/auth/session` with signed headers returns `204` and sets Supabase auth cookies
+- [ ] Reuse returned cookies for `/dashboard` and authenticated APIs in automated tests
+- [ ] In production-mode env, same route returns `404`
 
 ### 4.2 CSV Upload Flow
 

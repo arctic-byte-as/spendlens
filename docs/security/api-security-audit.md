@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Status | Living document |
-| Last updated | 2026-05-15 |
+| Last updated | 2026-05-16 |
 | Scope | All routes under `src/app/api/**` |
 
 ## Route inventory and security posture
@@ -24,6 +24,7 @@
 | `/api/billing/portal` | `POST` | Authenticated | `requireAuthenticatedRouteContext` | profile filtered by `id=user.id` | customer presence checks | Stripe hosted portal |
 | `/api/billing/status` | `GET` | Authenticated | `requireAuthenticatedRouteContext` | profile/upload queries filtered by `user_id` | none (read-only) | billing decision checks |
 | `/api/webhooks/stripe` | `POST` | Public webhook | Stripe signature verification | N/A | raw-body signature check | idempotency log (`stripe_webhook_events`) |
+| `/api/test/auth/session` | `POST` | Test-only (local/CI) | test gate (`SPENDLENS_TEST_AUTH_ENABLED`, non-production env, signed headers) | N/A | signed payload (`x-spendlens-test-auth` + HMAC), timestamp window, profile allow-list | returns `404` when disabled/invalid; no-store cache headers |
 
 ## Standard route guard pattern
 
@@ -49,3 +50,4 @@ This reduces drift risk where new routes accidentally omit auth checks.
 - API inventory and control matrix (this file)
 - Durable webhook event trail (`public.stripe_webhook_events`)
 - Central auth guard implementation (`src/lib/api/guard.ts`)
+- Test-auth bootstrap control (`src/lib/auth/test-bypass.ts`, `/api/test/auth/session`)
