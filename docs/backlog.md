@@ -1,6 +1,6 @@
 # SpendLens — Product Backlog
 
-> **Living document.** Owner: CPO. Last updated: 2026-05-15.
+> **Living document.** Owner: CPO. Last updated: 2026-09-10.
 > Format: Phases → Epics → User stories. Acceptance criteria on highest-risk stories only.
 > Technical dependencies flagged with **[TECH DEP]**.
 
@@ -292,10 +292,11 @@
   - **AC:** Posting `all_receipts_trumf.json` (254 receipts, 5,075 items) completes without error and is idempotent on re-post.
   - **[TECH DEP]:** Epic 7-B.
 
-- 🟠 **As a developer, I want a local bootstrap script** to seed my own receipt data without a browser upload.
-  - `scripts/import-trumf-receipts.ts` — reads `receipts/all_receipts_trumf.json`, calls Supabase with service-role key
-  - Uses `IMPORT_USER_ID` env var; script never deployed, runs locally only
-  - **[TECH DEP]:** Epic 7-B.
+- ~~🟠 **As a developer, I want a local bootstrap script** to seed my own receipt data without a browser upload.~~
+  **Superseded — won't build.** The self-serve bookmarklet + scoped import-token flow
+  (`/dashboard/receipts/connect`, `POST /api/receipts/import/bookmarklet`, `src/lib/api/importTokenGuard.ts`,
+  shipped in PR #14, 2026-09-10) replaces the need for a service-role local script entirely — it authenticates
+  per-user with a revocable bearer token instead. See `specs/trumf_import_tokens_bookmarklet.md`.
 
 - 🟡 **As a user with the flag, I want an upload UI at `/dashboard/receipts/import`** so that I don't need to POST JSON manually.
   - File picker for `all_receipts_trumf.json` or individual `receipt_*.json` files
@@ -303,37 +304,48 @@
 
 ---
 
-### Epic 7-D: Analysis Views
+### Epic 7-D: Analysis Views ✅ Done
 
-All views gated by `receipt_analysis` flag. Routes live under `/dashboard/receipts/`.
+All views gated by `receipt_analysis` flag. Routes live under `/dashboard/receipts/`
+(`src/app/dashboard/receipts/page.tsx`, backed by `src/lib/receipts/analysis.ts`). All six stories below
+are implemented, tested (`analysis.test.ts`), and verified against their acceptance criteria.
 
-- 🟠 **As a user, I want to see monthly spend by chain** so that I understand where I shop most.
+- ✅ 🟠 **As a user, I want to see monthly spend by chain** so that I understand where I shop most.
   - Bar chart (pure CSS) of spend per chain per month
   - Trip count alongside spend total
 
-- 🟠 **As a user, I want to see my grocery health index** so that I know what proportion of my basket is fresh produce.
+- ✅ 🟠 **As a user, I want to see my grocery health index** so that I know what proportion of my basket is fresh produce.
   - Health ratio = sum of items with `bonus_percent >= 15` / total basket spend
   - Monthly trend line; benchmark line at 0.30 (Norwegian household average)
   - **AC:** Health ratio matches manual SQL calculation on the same data set.
 
-- 🟠 **As a user, I want to see my food vs. non-food VAT split** so that I understand the composition of my grocery spend.
+- ✅ 🟠 **As a user, I want to see my food vs. non-food VAT split** so that I understand the composition of my grocery spend.
   - `vat_percent = 15` → food; `vat_percent = 25` → non-food
   - Stacked bar per month
 
-- 🟡 **As a user, I want to track price changes for items I buy regularly** so that I can spot inflation or deal opportunities.
+- ✅ 🟡 **As a user, I want to track price changes for items I buy regularly** so that I can spot inflation or deal opportunities.
   - Items purchased ≥ 3 times with `unit = 'EA'`
   - Show average unit price per month; highlight months where price increased > 10%
 
-- 🟡 **As a user, I want to see my campaign savings rate** so that I know how effectively I use supermarket offers.
+- ✅ 🟡 **As a user, I want to see my campaign savings rate** so that I know how effectively I use supermarket offers.
   - `savings_rate = total_savings / (gross_spend + total_savings)`
   - Monthly bar; highlight months above 15% as positive
 
-- 🟡 **As a user, I want to see my top 50 most purchased items by spend** so that I know where the majority of my grocery budget goes.
+- ✅ 🟡 **As a user, I want to see my top 50 most purchased items by spend** so that I know where the majority of my grocery budget goes.
   - Sortable table: name · total qty · total spend · receipt count
 
 ---
 
-### Epic 7-E: Claude Receipt Insights
+### Epic 7-E: Claude Receipt & Diet Insights
+*Status: not started — zero code exists for any story in this epic (`receiptInsights()` and
+`dietTrendInsights()` are not implemented anywhere in `src/lib/ai/`; no `diet_category` column exists yet).*
+*Note: `docs/family-diet-analysis.md` / `docs/diet-analysis.html` (merged via PR #12, 2026-09-10) are a
+one-time manually-generated report — not produced by any code in this epic, and not automatically updated
+as new receipts are imported. They establish the category taxonomy (Vegetables, Poultry, Red Meat, Processed
+Meat, Candy & Sweets, Fish & Seafood, Legumes & Nuts, Dairy sub-types, Alcohol, etc.) and the
+"Cut Out / Moderate / Eat More" framing that the stories below should reuse, so this epic's AI output stays
+consistent with that report's language rather than inventing a new taxonomy. The goal of this epic is to make
+that kind of analysis live and trend-aware instead of a manual one-off.*
 
 - 🟠 **As a user, I want Claude to generate receipt-level savings tips** based on my actual basket contents.
   - New `receiptInsights()` function in `src/lib/ai/insights.ts`
@@ -344,14 +356,54 @@ All views gated by `receipt_analysis` flag. Routes live under `/dashboard/receip
   - **AC:** User with 10+ receipts sees at least 3 tips that reference specific product names or chains from their data.
   - **[TECH DEP]:** Epic 7-D analysis queries must be available to feed the aggregated input.
 
+- 🟠 **As a user, I want item purchases classified into diet/nutrition categories** (Vegetables, Poultry,
+  Red Meat, Processed Meat, Candy & Sweets, Fish & Seafood, Legumes & Nuts, Dairy sub-types, Alcohol, etc. —
+  the taxonomy used in `docs/family-diet-analysis.md`) **so that diet-composition trends can be computed
+  without re-deriving the category list by hand each time.**
+  - New `src/lib/receipts/dietCategories.ts` — maps `receipt_items.name` (+ `vat_percent`/`bonus_percent` as
+    signals) to a fixed diet-category enum matching the report's taxonomy
+  - Persisted per item (new `receipt_items.diet_category` column, backfilled) rather than recomputed on every
+    request, since the underlying item names are stable and classification may call Claude for ambiguous names
+  - **AC:** Re-running classification on the same item name is idempotent and does not change past classifications
+    without an explicit re-classify action.
+  - **[TECH DEP]:** Epic 7-B schema; new migration for the `diet_category` column.
+
+- 🟠 **As a user, I want to see how my diet-category mix has changed month over month** (e.g. is candy share
+  rising or falling, is fish share moving toward the NNR target) **so that I can tell whether changes I'm
+  making are actually showing up in what I buy, not just intend.**
+  - `getMonthlyDietCategoryTrend()` in `src/lib/receipts/analysis.ts` — % of spend per diet category per month
+  - New page/section under `/dashboard/receipts/diet` (flag-gated): trend lines or stacked bars per category
+    over the selected period, plus delta vs. the prior period of equal length
+  - Reuse the "Cut Out / Moderate / Eat More" grouping from the diet analysis report as a filter/legend
+  - **AC:** For a user with 3+ months of receipt data, each diet category's month-over-month % change is shown
+    and matches a manual aggregation over the same data.
+  - **[TECH DEP]:** diet-category classification story above.
+
+- 🟠 **As a user, I want an AI-generated narrative summary of my diet trend over time** ("candy spend down 40%
+  since March, fish still below target, keep going") **so that I get a plain-language read on progress, not
+  just charts.**
+  - New `dietTrendInsights()` function in `src/lib/ai/insights.ts` (or a new `src/lib/ai/dietInsights.ts`)
+  - Input: pre-aggregated monthly diet-category trend (from the story above) plus the fixed NNR-style targets
+    already used in the diet analysis report (e.g. fish 2–3 meals/week, legumes 6–8% of food spend,
+    processed meat max 50g/week) — never raw item-level or receipt-level data
+  - Output: typed structured response (per-category verdict: improving / worsening / flat, one sentence each)
+    rendered on `/dashboard/receipts/diet`, not free-form chat
+  - Cached in `insights` table with `"source": "diet_trend"` tag, TTL aligned with Epic 7-E's first story (24h)
+  - **AC:** A user with data spanning 2+ distinct months sees a verdict per tracked diet category, and each
+    verdict's direction (improving/worsening/flat) matches the sign of the underlying month-over-month change.
+  - **[TECH DEP]:** Epic 8-D (AI & prompt-injection hardening) input-shaping rules apply — aggregates only,
+    item names wrapped in delimiters if included as supporting examples.
+
 ---
 
 ### Epic 7-F: Testing
 
-- 🟠 **Unit tests for `hasFlag()`** — cover all truthy/falsy inputs, including missing key and wrong type
-- 🟠 **Unit test for import idempotency** — mock Supabase upsert, verify `ON CONFLICT` behaviour
-- 🟡 **Unit tests for health ratio and VAT split SQL helpers** — seed known data, assert output matches expected ratios
-- 🟡 **E2E smoke test** — import 10-receipt slice of `all_receipts_trumf.json`, verify row counts and health ratio endpoint returns valid JSON
+- ✅ 🟠 **Unit tests for `hasFlag()`** — cover all truthy/falsy inputs, including missing key and wrong type. `src/lib/features.test.ts`
+- ✅ 🟠 **Unit test for import idempotency** — mock Supabase upsert, verify `ON CONFLICT` behaviour. `src/app/api/receipts/import/importReceipts.test.ts`
+- ✅ 🟡 **Unit tests for health ratio and VAT split SQL helpers** — seed known data, assert output matches expected ratios. `src/lib/receipts/analysis.test.ts`
+- 🟡 **E2E smoke test** — import 10-receipt slice of real receipt data, verify row counts and health ratio endpoint returns valid JSON. *Not confirmed — worth a quick check before assuming this is covered; existing tests are unit-level against mocks, not a true end-to-end import→query smoke test.*
+- 🟠 **Unit tests for diet-category classification** (new, for Epic 7-E) — fixed taxonomy mappings return stable categories for known item names; ambiguous names fall back deterministically rather than silently miscategorising
+- 🟡 **Unit tests for `getMonthlyDietCategoryTrend()`** (new, for Epic 7-E) — seed known multi-month data, assert per-category % and month-over-month delta match expected values
 
 ---
 

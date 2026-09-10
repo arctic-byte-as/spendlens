@@ -1,4 +1,16 @@
 # Trumf Shopping Summary
+
+> ⚠️ **Historical snapshot — not live, not regenerated.** This file was a one-time
+> manual export and has no generator script wired to it. Receipt data has since
+> grown past this snapshot (e.g. `specs/trumf_import_tokens_bookmarklet.md` records
+> 239+ receipts pulled 2026-09-10, vs. the 254 total below from three weeks after
+> this snapshot's own period ended). **For current numbers, use the live
+> `/dashboard/receipts` views**, computed on-demand from the `receipts` /
+> `receipt_items` tables via `src/lib/receipts/analysis.ts` (chain spend, monthly
+> trends, health ratio, VAT split, top items, savings rate — see backlog Epic 7-D).
+> Kept here only as a point-in-time reference. See backlog Epic 7-E for the
+> AI diet/habit trend-analysis feature that supersedes manual summaries like this one.
+
 **Generated:** 2026-05-14
 **Period:** 2025-05-16 → 2026-05-13
 
