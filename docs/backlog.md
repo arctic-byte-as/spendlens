@@ -413,9 +413,9 @@ that kind of analysis live and trend-aware instead of a manual one-off.*
 
 ---
 
-### Epic 8-A: Project-Wide OWASP Review
+### Epic 8-A: Project-Wide OWASP Review ✅ Done
 
-- 🔴 **As the product owner, I want a CISO agent to evaluate SpendLens against OWASP principles** so that auth, data isolation, AI, billing, and upload risks are visible before abuse happens.
+- ✅ 🔴 **As the product owner, I want a CISO agent to evaluate SpendLens against OWASP principles** so that auth, data isolation, AI, billing, and upload risks are visible before abuse happens.
   - Review all API routes in `src/app/api/`
   - Review all Supabase migrations and RLS policies
   - Review Supabase Storage path and bucket assumptions
@@ -423,38 +423,46 @@ that kind of analysis live and trend-aware instead of a manual one-off.*
   - Review Stripe billing and webhook code in `src/lib/billing/` and `src/app/api/webhooks/stripe/`
   - Produce findings mapped to OWASP Web/API categories with severity, exploit scenario, and recommended fix
   - **AC:** A markdown security report exists with every route classified as public/authenticated/webhook/admin-only, and every high-risk finding has a backlog item.
+  - **Evidence:** `docs/security/api-security-audit.md` (route classification table) + `docs/security/sdlc-security-baseline.md` (OWASP ASVS/API Top 10 mapping). Note: the AI-prompt-boundary angle was not covered by this report — see Epic 8-D, still open.
 
 ---
 
-### Epic 8-B: API Route Protection Baseline
+### Epic 8-B: API Route Protection Baseline ✅ Done
 
-- 🔴 **As the app, I want every API route to declare and enforce its security posture** so that accidental public access is caught during review.
+- ✅ 🔴 **As the app, I want every API route to declare and enforce its security posture** so that accidental public access is caught during review.
   - Add or update route-level checks for auth, ownership, body validation, and error handling
   - Public routes must be explicitly documented as public
   - Path IDs such as `uploadId` and transaction IDs must be verified against `user.id` before processing
   - All errors return JSON without stack traces or provider internals
   - **AC:** CISO review can list every API route with auth state, owner checks, input validation, and abuse limits.
+  - **Evidence:** `requireAuthenticatedRouteContext()` (`src/lib/api/guard.ts`) used consistently across `src/app/api/`; ownership filters confirmed in `uploads/[id]`, `transactions/[id]`, etc.
 
-- 🔴 **As the app, I want expensive API routes protected from resource abuse** so that AI, upload, and billing costs cannot be driven by anonymous or scripted callers.
+- ✅ 🔴 **As the app, I want expensive API routes protected from resource abuse** so that AI, upload, and billing costs cannot be driven by anonymous or scripted callers.
   - Add rate limits for AI processing, insights, receipt chat, and upload endpoints
   - Enforce server-side file size, row count, and receipt count caps
   - Subscription gates fail closed for missing profile, free-tier over-limit, and `past_due`
   - **AC:** A free-tier user cannot bypass upload or AI limits by calling API routes directly.
+  - **Evidence:** `evaluateBillingGate()` (`src/lib/billing/gate.ts`, tested) gates `/api/process`, `/api/insights`, `/api/uploads/*/recategorise`, `/api/receipts/import`. Real sliding-window rate limiting (20 req/hr, HTTP 429) on `/api/receipts/import-token` (`src/lib/api/importTokenGuard.ts`). Cost/row caps are enforced via billing-tier limits rather than generic IP rate limiting elsewhere — acceptable given the auth-gated nature of these routes, but worth a follow-up if abuse from authenticated free-tier accounts becomes a problem.
 
 ---
 
-### Epic 8-C: Supabase RLS & Storage Audit
+### Epic 8-C: Supabase RLS & Storage Audit ✅ Done
 
-- 🔴 **As the app, I want all user-owned tables and files isolated by user** so that one user cannot read or mutate another user's financial data.
+- ✅ 🔴 **As the app, I want all user-owned tables and files isolated by user** so that one user cannot read or mutate another user's financial data.
   - Verify every user-owned table has `user_id`, RLS enabled, and owner-scoped policies
   - Verify insert policies use `WITH CHECK` where users insert rows
   - Verify all Storage paths include `{user_id}` and bucket policies enforce that prefix
   - Add missing indexes for owner-scoped queries where needed
   - **AC:** CISO report confirms no table or storage object containing user data is accessible cross-user under normal Supabase anon/session access.
+  - **Evidence:** RLS with `auth.uid()`-scoped policies confirmed on `profiles`, `uploads`, `transactions`, `insights`, `user_categories`, `receipts`, `receipt_items`, `import_tokens`, `stripe_webhook_events` (deny-all/service-role-only). Storage paths scoped via `(storage.foldername(name))[2] = auth.uid()::text` (`20260514000000_storage_uploads.sql`). No standalone written report exists for this epic specifically, but the underlying migrations satisfy the AC.
 
 ---
 
 ### Epic 8-D: AI & Prompt-Injection Hardening
+*Status: not started. Verified 2026-09-10 — no delimiter-wrapping, PII stripping, or typed-intent layer exists in
+`src/lib/ai/`; `categorise.ts` and `insights.ts` pass raw transaction text straight into the prompt. Zero test
+files exist under `src/lib/ai/` (no coverage for malformed model output or injection-shaped input). This is a
+real, unaddressed gap — user-controlled transaction descriptions currently flow unguarded into Claude prompts.*
 
 - 🟠 **As the app, I want AI calls constrained to safe inputs and typed outputs** so that user-controlled transaction, receipt, and chat text cannot steer system behaviour.
   - Wrap user-controlled data in clear delimiters before model calls
@@ -466,18 +474,25 @@ that kind of analysis live and trend-aware instead of a manual one-off.*
 
 ---
 
-### Epic 8-E: Secrets, Webhooks & Integrity
+### Epic 8-E: Secrets, Webhooks & Integrity ✅ Done
 
-- 🟠 **As the app, I want secrets and third-party callbacks handled safely** so that billing and provider credentials cannot be spoofed or exposed.
+- ✅ 🟠 **As the app, I want secrets and third-party callbacks handled safely** so that billing and provider credentials cannot be spoofed or exposed.
   - Confirm service-role key is never used in frontend code
   - Confirm Stripe webhook raw-body signature verification remains intact
   - Confirm webhook handlers are idempotent
   - Add secret scanning guidance to CI or developer docs
   - **AC:** Invalid Stripe webhook signatures are rejected, duplicate valid events do not corrupt subscription state, and no server-only secret appears in frontend-exposed code.
+  - **Evidence:** `createAdminClient()` (`src/lib/supabase/admin.ts`) only imported in server-only files. `src/app/api/webhooks/stripe/route.ts` verifies `stripe-signature` via `constructEvent` on the raw body, rejects with 400 on failure. Idempotency via unique `event_id` constraint + status tracking on `stripe_webhook_events` (`20260515214500_stripe_webhook_events.sql`, `20260516202000_security_hardening_feature_flags_and_webhooks.sql`).
 
 ---
 
 ### Epic 8-F: Security Logging & Abuse Monitoring
+*Status: partially done at best. Verified 2026-09-10 — no structured security-event logging module exists
+(no `logger`/`securityLog`/`auditLog` anywhere in `src/lib`). Only ad hoc `console.error(...)` calls (39
+occurrences across `src/app/api`) for operational failures — not actor/route/event-type/timestamp structured,
+and auth failures (401s in `guard.ts`) and rate-limit hits (429 in `importTokenGuard.ts`) currently log nothing
+at all. The one durable audit trail is `stripe_webhook_events`, which covers only the webhook-failure slice of
+this epic's scope, not auth/upload/AI-validation events.*
 
 - 🟡 **As the operator, I want basic security-relevant events logged** so that abuse attempts can be investigated without storing sensitive financial details.
   - Log auth failures, rate-limit hits, rejected uploads, webhook signature failures, and AI validation failures
