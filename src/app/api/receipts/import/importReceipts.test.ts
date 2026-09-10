@@ -1,3 +1,8 @@
+const mockLogSecurityEvent = jest.fn()
+jest.mock('@/lib/logging/securityLog', () => ({
+  logSecurityEvent: (event: unknown) => mockLogSecurityEvent(event),
+}))
+
 import { importReceipts } from './importReceipts'
 
 const VALID_RECEIPT = {
@@ -62,6 +67,10 @@ function createSupabaseMock(existingReceiptIds: string[] = []) {
 }
 
 describe('importReceipts', () => {
+  beforeEach(() => {
+    mockLogSecurityEvent.mockReset()
+  })
+
   it('returns 400 for an invalid payload without touching supabase', async () => {
     const { from } = createSupabaseMock()
 
@@ -69,6 +78,31 @@ describe('importReceipts', () => {
 
     expect(response.status).toBe(400)
     expect(from).not.toHaveBeenCalled()
+  })
+
+  it('logs an upload_rejected security event for an invalid payload, without the raw body', async () => {
+    const { from } = createSupabaseMock()
+    const suspiciousBody = { receipts: [], secretAccountNumber: '1234-5678-9012' }
+
+    await importReceipts({ from } as never, 'user-1', suspiciousBody)
+
+    expect(mockLogSecurityEvent).toHaveBeenCalledTimes(1)
+    const event = mockLogSecurityEvent.mock.calls[0][0]
+    expect(event).toEqual({
+      eventType: 'upload_rejected',
+      route: '/api/receipts/import',
+      actor: 'user-1',
+      reason: expect.any(String),
+    })
+    expect(JSON.stringify(event)).not.toContain('1234-5678-9012')
+  })
+
+  it('does not log a security event for a successful import', async () => {
+    const { from } = createSupabaseMock()
+
+    await importReceipts({ from } as never, 'user-1', { receipts: [VALID_RECEIPT] })
+
+    expect(mockLogSecurityEvent).not.toHaveBeenCalled()
   })
 
   it('imports new receipts and reports zero skipped', async () => {

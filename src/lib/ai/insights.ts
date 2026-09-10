@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { ANTHROPIC_MODEL, cachedSystemPrompt } from './model'
+import { logSecurityEvent } from '@/lib/logging/securityLog'
 
 export interface SavingTip {
   category: string
@@ -45,6 +46,12 @@ No other text, no markdown. Just the JSON array.`
     return tips.sort((a, b) => b.saving_amount - a.saving_amount).slice(0, 5)
   } catch {
     console.error('Failed to parse insights response')
+    logSecurityEvent({
+      eventType: 'ai_validation_failure',
+      route: 'lib/ai/insights',
+      actor: 'unknown',
+      reason: 'insights_parse_failed',
+    })
     return []
   }
 }

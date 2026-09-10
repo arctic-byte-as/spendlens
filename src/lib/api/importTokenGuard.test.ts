@@ -5,6 +5,11 @@ jest.mock('@/lib/supabase/admin', () => ({
   createAdminClient: () => mockCreateAdminClient(),
 }))
 
+const mockLogSecurityEvent = jest.fn()
+jest.mock('@/lib/logging/securityLog', () => ({
+  logSecurityEvent: (event: unknown) => mockLogSecurityEvent(event),
+}))
+
 import { requireImportTokenContext, IMPORT_TOKEN_RATE_LIMIT } from './importTokenGuard'
 
 const RAW_TOKEN = 'slr_imp_test-token'
@@ -64,6 +69,7 @@ function requestWith(token?: string): Request {
 describe('requireImportTokenContext', () => {
   beforeEach(() => {
     mockCreateAdminClient.mockReset()
+    mockLogSecurityEvent.mockReset()
   })
 
   it('rejects a missing Authorization header', async () => {
@@ -143,6 +149,12 @@ describe('requireImportTokenContext', () => {
 
     expect((result as Response).status).toBe(429)
     expect(admin.update).not.toHaveBeenCalled()
+    expect(mockLogSecurityEvent).toHaveBeenCalledWith({
+      eventType: 'rate_limit_exceeded',
+      route: '/api/receipts/import/bookmarklet',
+      actor: 'user-1',
+      reason: 'import_token_rate_limit',
+    })
   })
 
   it('resets the counter once the rolling window has elapsed', async () => {
@@ -199,5 +211,6 @@ describe('requireImportTokenContext', () => {
     expect(admin.update).toHaveBeenCalledWith(
       expect.objectContaining({ request_count: 1, last_used_at: expect.any(String) })
     )
+    expect(mockLogSecurityEvent).not.toHaveBeenCalled()
   })
 })

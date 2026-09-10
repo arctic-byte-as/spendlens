@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { parseReceiptsImportPayload } from './payload'
+import { logSecurityEvent } from '@/lib/logging/securityLog'
+
+const ROUTE = '/api/receipts/import'
 
 export type ImportReceiptsSupabaseClient = SupabaseClient
 
@@ -51,10 +54,17 @@ export async function importReceipts(
   try {
     parsed = parseReceiptsImportPayload(requestBody)
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Invalid request body' },
-      { status: 400 },
-    )
+    // parseReceiptsImportPayload only throws structural messages (field
+    // names, counts, indices) — never raw payload values — so it's safe to
+    // log verbatim here.
+    const reason = error instanceof Error ? error.message : 'Invalid request body'
+    logSecurityEvent({
+      eventType: 'upload_rejected',
+      route: ROUTE,
+      actor: userId,
+      reason,
+    })
+    return NextResponse.json({ error: reason }, { status: 400 })
   }
 
   const receiptRowById = new Map<string, ReceiptInsertRow>()

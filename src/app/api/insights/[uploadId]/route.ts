@@ -3,10 +3,10 @@ import { requireAuthenticatedRouteContext } from '@/lib/api/guard'
 import { evaluateBillingGate } from '@/lib/billing/gate'
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: { uploadId: string } }
 ) {
-  const auth = await requireAuthenticatedRouteContext()
+  const auth = await requireAuthenticatedRouteContext(request)
   if (auth instanceof NextResponse) return auth
   const { supabase, user } = auth
 
