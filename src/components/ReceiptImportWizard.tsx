@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useMemo, useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   createReceiptImportPreview,
@@ -10,6 +11,12 @@ import {
 } from '@/lib/receipts/importPreview'
 
 type ImportStatus = 'idle' | 'ready' | 'importing' | 'done' | 'error'
+
+type ImportResult = {
+  imported: number
+  skipped: number
+  errors: string[]
+}
 
 function resolveDisplayCurrency(receipts: ReceiptImportReceipt[]): string {
   const counts = new Map<string, number>()
@@ -53,6 +60,7 @@ export default function ReceiptImportWizard() {
   const [status, setStatus] = useState<ImportStatus>('idle')
   const [errorMsg, setErrorMsg] = useState('')
   const [dragOver, setDragOver] = useState(false)
+  const [result, setResult] = useState<ImportResult | null>(null)
 
   const previewRows = useMemo(() => preview?.receipts.slice(0, 5) || [], [preview])
   const summaryCurrency = useMemo(
@@ -63,6 +71,7 @@ export default function ReceiptImportWizard() {
   const readFiles = useCallback(async (selectedFiles: File[]) => {
     setErrorMsg('')
     setStatus('idle')
+    setResult(null)
 
     if (selectedFiles.length === 0) return
 
@@ -114,6 +123,7 @@ export default function ReceiptImportWizard() {
     if (!preview || status === 'importing') return
     setStatus('importing')
     setErrorMsg('')
+    setResult(null)
 
     try {
       const response = await fetch('/api/receipts/import', {
@@ -127,8 +137,12 @@ export default function ReceiptImportWizard() {
         throw new Error(data.error || 'Receipt import failed')
       }
 
+      setResult({
+        imported: data.imported ?? 0,
+        skipped: data.skipped ?? 0,
+        errors: data.errors ?? [],
+      })
       setStatus('done')
-      router.push('/dashboard/receipts')
       router.refresh()
     } catch (error) {
       setStatus('error')
@@ -247,27 +261,76 @@ export default function ReceiptImportWizard() {
             </div>
           </section>
 
-          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-            <button
-              type="button"
-              onClick={handleImport}
-              disabled={status === 'importing'}
-              style={{
-                fontFamily: 'Orbitron, sans-serif',
-                fontSize: '9px',
-                letterSpacing: '0.2em',
-                padding: '11px 26px',
-                background: 'var(--prancing-horse)',
-                color: 'white',
-                border: 'none',
-                cursor: status === 'importing' ? 'wait' : 'pointer',
-              }}
-            >
-              {status === 'importing' ? 'IMPORTING...' : 'IMPORT RECEIPTS'}
-            </button>
-            <div style={{ color: 'var(--muted)', fontSize: '12px' }}>
-              Existing receipts are deduplicated by receipt ID.
+          <div style={{ display: 'grid', gap: '14px' }}>
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+              <button
+                type="button"
+                onClick={handleImport}
+                disabled={status === 'importing'}
+                style={{
+                  fontFamily: 'Orbitron, sans-serif',
+                  fontSize: '9px',
+                  letterSpacing: '0.2em',
+                  padding: '11px 26px',
+                  background: 'var(--prancing-horse)',
+                  color: 'white',
+                  border: 'none',
+                  cursor: status === 'importing' ? 'wait' : 'pointer',
+                }}
+              >
+                {status === 'importing' ? 'IMPORTING...' : 'IMPORT RECEIPTS'}
+              </button>
+              <div style={{ color: 'var(--muted)', fontSize: '12px' }}>
+                Existing receipts are deduplicated by receipt ID.
+              </div>
             </div>
+
+            {status === 'importing' && (
+              <div style={{ position: 'relative', height: '4px', background: 'var(--grid-line)', overflow: 'hidden' }}>
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    width: '40%',
+                    background: 'var(--prancing-horse)',
+                    animation: 'receipt-import-progress 1.1s ease-in-out infinite',
+                  }}
+                />
+                <style>{`
+                  @keyframes receipt-import-progress {
+                    0% { transform: translateX(-100%); }
+                    100% { transform: translateX(250%); }
+                  }
+                `}</style>
+              </div>
+            )}
+
+            {status === 'done' && result && (
+              <div style={{ border: '1px solid var(--positive)', padding: '16px 18px', display: 'grid', gap: '10px' }}>
+                <div style={{ fontFamily: 'Orbitron, sans-serif', fontSize: '9px', letterSpacing: '0.15em', color: 'var(--positive)' }}>
+                  IMPORT COMPLETE
+                </div>
+                <div style={{ fontFamily: 'DM Mono, monospace', fontSize: '12px', color: 'var(--carbon)' }}>
+                  {result.imported.toLocaleString('nb-NO')} imported · {result.skipped.toLocaleString('nb-NO')} skipped (already imported)
+                  {result.errors.length > 0 && ` · ${result.errors.length.toLocaleString('nb-NO')} errors`}
+                </div>
+                {result.errors.length > 0 && (
+                  <div style={{ color: 'var(--muted)', fontSize: '11px' }}>{result.errors.join(', ')}</div>
+                )}
+                <Link
+                  href="/dashboard/receipts"
+                  style={{
+                    fontFamily: 'Orbitron, sans-serif',
+                    fontSize: '9px',
+                    letterSpacing: '0.15em',
+                    color: 'var(--prancing-horse)',
+                    width: 'fit-content',
+                  }}
+                >
+                  VIEW RECEIPT ANALYSIS →
+                </Link>
+              </div>
+            )}
           </div>
         </div>
       )}
