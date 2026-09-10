@@ -172,8 +172,32 @@
 - 🟡 **Empty state improvements** — better onboarding for first-time users
 - 🟡 **Account deletion** — `DELETE MY ACCOUNT` in `/settings` with cascade
 - 🟢 **CI pipeline** — GitHub Actions running `npm test` + `npm run build` on every push to `main`
-- 🟢 **Error monitoring** — Sentry free tier on the frontend
+- ~~🟢 **Error monitoring** — Sentry free tier on the frontend~~ **Superseded by Epic 5-A below.**
 - 🟢 **Uptime monitoring** — UptimeRobot or Cloudflare Health Check on the production URL
+
+---
+
+### Epic 5-A: Application Error Observability
+*Added 2026-09-10. Distinct from Epic 8-F: 8-F covers security-relevant events (auth failures, rate-limit
+hits, webhook signature failures) for abuse investigation; this epic covers general application errors —
+unhandled exceptions, failed AI calls, broken imports — so the team can see what's actually breaking for
+users and improve the product, not investigate misuse. Share the underlying structured-logging helper from
+8-F where it makes sense (both want actor/route/event-type/timestamp shape) rather than building two loggers.*
+
+- 🟠 **As the operator, I want unhandled errors and failed operations captured with tracing context** so that we can diagnose issues users hit without asking them to reproduce and describe it.
+  - Evaluate OpenTelemetry (vendor-neutral traces/spans across API routes, AI calls, Supabase queries) vs. Sentry (turnkey error capture + source maps + session context) vs. both — OTel for tracing/spans, Sentry as one exporter/sink for error events. Don't over-build: start with whichever gets useful signal fastest, likely Sentry alone, and only add OTel if request-level tracing across services becomes a real need.
+  - Sentry (if used): frontend + API route error boundaries, source maps uploaded on build, environment tagging (dev/preview/production)
+  - **AC:** An unhandled exception in an API route or a failed Claude API call produces a captured error event with route, timestamp, and a stack trace, visible without reading server logs.
+
+- 🔴 **As a user, I want my financial data kept out of error reports** so that observability tooling never becomes a new place my sensitive data leaks to.
+  - Scrub/deny-list before send: transaction amounts, merchant/description text, account identifiers, receipt item names, category data, auth tokens, session cookies — configure Sentry's `beforeSend`/OTel span processors to strip these rather than relying on "don't log it" discipline alone
+  - No PII or financial values in breadcrumbs, span attributes, or error messages — assert this with a test that feeds known-sensitive strings through the capture path and checks they don't appear in the outgoing payload
+  - Respect user data-deletion requests (Phase 5's "Account deletion" story) — if Sentry/OTel ever retains a user identifier, it must be purgeable on account deletion
+  - **AC:** A deliberately triggered error containing a fake transaction description and account number does not contain that data in the captured event, verified by inspecting the actual payload sent (not just the code's intent).
+
+- 🟡 **As the operator, I want error volume and new error types alertable** so that regressions are caught before users report them.
+  - Basic alert (email/Slack) on new error type or error-rate spike
+  - Not a full on-call/paging setup — lightweight, matches the project's current operational maturity
 
 ---
 
