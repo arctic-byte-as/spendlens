@@ -4,6 +4,15 @@
 **Requires:** Active Trumf login session in browser
 **Output:** One JSON file per receipt + one combined `all_receipts_trumf.json`
 
+> **Canonical/shipped version:** the extraction technique documented here (expand months →
+> walk React fiber for transaction metadata → fetch via the RSC endpoint) is now shipped as
+> a real bookmarklet: `public/bookmarklet/trumf-import.js` (generated from
+> `src/lib/receipts/bookmarklet.ts`, see `specs/trumf_import_tokens_bookmarklet.md`). It
+> replaces steps 5/6 below (download-to-file) with a direct POST to SpendLens, adds
+> retry-with-backoff on receipts that fail to fetch, and shows on-page progress instead of
+> relying on a devtools console. This document's own steps remain unchanged as historical/
+> debugging reference — useful if Trumf's frontend changes and the fiber-walk breaks.
+
 ---
 
 ## Overview
