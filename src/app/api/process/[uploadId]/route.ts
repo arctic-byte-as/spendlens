@@ -7,6 +7,9 @@ import { categoriseTransactionBatches, type CategorisationResult } from '@/lib/a
 import { generateInsights } from '@/lib/ai/insights'
 import { evaluateBillingGate } from '@/lib/billing/gate'
 import { FREE_TIER_TRANSACTION_LIMIT } from '@/lib/billing/constants'
+import { captureError } from '@/lib/observability/logger'
+
+const ROUTE = '/api/process/[uploadId]'
 
 const TRANSACTION_INSERT_BATCH = 500
 
@@ -220,6 +223,7 @@ export async function POST(
       }
     } catch (aiError) {
       console.error('AI categorisation error:', aiError)
+      captureError(aiError, { route: ROUTE, eventType: 'ai_call_failed', actor: user.id, extra: { uploadId } })
       // Don't fail the whole process if AI fails
     }
 
@@ -237,6 +241,7 @@ export async function POST(
     })
   } catch (error) {
     console.error('Processing error:', error)
+    captureError(error, { route: ROUTE, eventType: 'unhandled_exception', actor: user.id, extra: { uploadId } })
     await supabase.from('uploads').update({ status: 'error' }).eq('id', uploadId)
     return NextResponse.json({ error: 'Processing failed' }, { status: 500 })
   }

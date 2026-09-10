@@ -3,6 +3,11 @@ jest.mock('@/lib/logging/securityLog', () => ({
   logSecurityEvent: (event: unknown) => mockLogSecurityEvent(event),
 }))
 
+const mockCaptureError = jest.fn()
+jest.mock('@/lib/observability/logger', () => ({
+  captureError: (error: unknown, context: unknown) => mockCaptureError(error, context),
+}))
+
 const mockCreate = jest.fn()
 jest.mock('@anthropic-ai/sdk', () => {
   const MockAnthropic = jest.fn().mockImplementation(() => ({
@@ -25,6 +30,7 @@ const batch: TransactionInput[] = [
 beforeEach(() => {
   mockCreate.mockReset()
   mockLogSecurityEvent.mockReset()
+  mockCaptureError.mockReset()
 })
 
 describe('categoriseTransactions', () => {
@@ -165,6 +171,15 @@ describe('categoriseTransactionBatches — AI validation failure logging', () =>
     })
     expect(JSON.stringify(event)).not.toContain('1234-5678-9012')
     expect(JSON.stringify(event)).not.toContain(sensitiveResponseText)
+
+    // Sentry capture must use the same fixed, non-leaking reason as the security log — the
+    // rethrown error from categoriseBatch's own parse-failure path embeds a slice of the raw
+    // Claude response, so it must never be passed straight through to captureError either.
+    expect(mockCaptureError).toHaveBeenCalledTimes(1)
+    const [capturedError] = mockCaptureError.mock.calls[0]
+    expect(capturedError).toBeInstanceOf(Error)
+    expect((capturedError as Error).message).not.toContain('1234-5678-9012')
+    expect((capturedError as Error).message).not.toContain(sensitiveResponseText)
   })
 
   it('does not log a security event when categorisation succeeds', async () => {

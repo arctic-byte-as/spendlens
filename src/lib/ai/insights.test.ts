@@ -12,6 +12,11 @@ jest.mock('@/lib/logging/securityLog', () => ({
   logSecurityEvent: (event: unknown) => mockLogSecurityEvent(event),
 }))
 
+const mockCaptureError = jest.fn()
+jest.mock('@/lib/observability/logger', () => ({
+  captureError: (error: unknown, context: unknown) => mockCaptureError(error, context),
+}))
+
 import { generateInsights, receiptInsights, dietTrendInsights, type ReceiptInsightsInput } from './insights'
 import type { MonthlyDietCategoryShare } from '@/lib/receipts/analysis'
 import type { DietCategoryTarget } from '@/lib/receipts/dietTargets'
@@ -32,6 +37,7 @@ const baseInput: ReceiptInsightsInput = {
 beforeEach(() => {
   mockCreate.mockReset()
   mockLogSecurityEvent.mockReset()
+  mockCaptureError.mockReset()
 })
 
 describe('generateInsights', () => {
@@ -274,6 +280,10 @@ describe('generateInsights — AI validation failure logging', () => {
     })
     expect(JSON.stringify(event)).not.toContain('4242424242424242')
     expect(JSON.stringify(event)).not.toContain(sensitiveResponseText)
+
+    expect(mockCaptureError).toHaveBeenCalledTimes(1)
+    const [capturedError] = mockCaptureError.mock.calls[0]
+    expect(capturedError).toBeInstanceOf(Error)
   })
 
   it('does not log a security event when insights parse successfully', async () => {
