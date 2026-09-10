@@ -1,5 +1,6 @@
 import {
   getItemPriceTrends,
+  getMonthlyDietCategoryTrend,
   getMonthlyHealthRatio,
   getMonthlySavingsRate,
   getMonthlyVatSplit,
@@ -146,6 +147,53 @@ describe('receipt analysis aggregations', () => {
         totalSpend: 80,
         receiptCount: 1,
       },
+    ])
+  })
+})
+
+describe('getMonthlyDietCategoryTrend', () => {
+  const dietReceipts: ReceiptAnalysisRow[] = [
+    { receipt_id: 'd1', date: '2026-01-05T10:00:00.000Z', chain: 'KIWI', total_amount: 100, currency: 'NOK' },
+    { receipt_id: 'd2', date: '2026-02-05T10:00:00.000Z', chain: 'KIWI', total_amount: 100, currency: 'NOK' },
+    { receipt_id: 'd3', date: '2026-03-05T10:00:00.000Z', chain: 'KIWI', total_amount: 100, currency: 'NOK' },
+  ]
+
+  const dietItems: ReceiptItemAnalysisRow[] = [
+    { receipt_id: 'd1', name: 'SMÅGODT', quantity: 1, unit: 'EA', total_price: 30, bonus_percent: 0, vat_percent: 15, savings_amount: 0, diet_category: 'Candy & Sweets' },
+    { receipt_id: 'd1', name: 'LAKS', quantity: 1, unit: 'EA', total_price: 70, bonus_percent: 0, vat_percent: 15, savings_amount: 0, diet_category: 'Fish & Seafood' },
+    { receipt_id: 'd2', name: 'SMÅGODT', quantity: 1, unit: 'EA', total_price: 20, bonus_percent: 0, vat_percent: 15, savings_amount: 0, diet_category: 'Candy & Sweets' },
+    { receipt_id: 'd2', name: 'LAKS', quantity: 1, unit: 'EA', total_price: 80, bonus_percent: 0, vat_percent: 15, savings_amount: 0, diet_category: 'Fish & Seafood' },
+    { receipt_id: 'd3', name: 'SMÅGODT', quantity: 1, unit: 'EA', total_price: 50, bonus_percent: 0, vat_percent: 15, savings_amount: 0, diet_category: 'Candy & Sweets' },
+    { receipt_id: 'd3', name: 'LAKS', quantity: 1, unit: 'EA', total_price: 50, bonus_percent: 0, vat_percent: 15, savings_amount: 0, diet_category: 'Fish & Seafood' },
+  ]
+
+  it('computes % of monthly spend per category, matching a manual aggregation', () => {
+    const rows = getMonthlyDietCategoryTrend(dietReceipts, dietItems)
+
+    const candy = rows.filter(row => row.category === 'Candy & Sweets')
+    const fish = rows.filter(row => row.category === 'Fish & Seafood')
+
+    expect(candy).toEqual([
+      { month: '2026-01', category: 'Candy & Sweets', spend: 30, shareOfTotal: 0.3, shareDeltaVsPreviousMonth: null },
+      { month: '2026-02', category: 'Candy & Sweets', spend: 20, shareOfTotal: 0.2, shareDeltaVsPreviousMonth: expect.closeTo(-0.1) },
+      { month: '2026-03', category: 'Candy & Sweets', spend: 50, shareOfTotal: 0.5, shareDeltaVsPreviousMonth: expect.closeTo(0.3) },
+    ])
+
+    expect(fish).toEqual([
+      { month: '2026-01', category: 'Fish & Seafood', spend: 70, shareOfTotal: 0.7, shareDeltaVsPreviousMonth: null },
+      { month: '2026-02', category: 'Fish & Seafood', spend: 80, shareOfTotal: 0.8, shareDeltaVsPreviousMonth: expect.closeTo(0.1) },
+      { month: '2026-03', category: 'Fish & Seafood', spend: 50, shareOfTotal: 0.5, shareDeltaVsPreviousMonth: expect.closeTo(-0.3) },
+    ])
+  })
+
+  it('treats a missing/unrecognised diet_category as Other rather than throwing', () => {
+    const rows = getMonthlyDietCategoryTrend(
+      [{ receipt_id: 'x1', date: '2026-01-05T10:00:00.000Z', chain: 'KIWI', total_amount: 10, currency: 'NOK' }],
+      [{ receipt_id: 'x1', name: 'MYSTERY ITEM', quantity: 1, unit: 'EA', total_price: 10, bonus_percent: 0, vat_percent: 15, savings_amount: 0, diet_category: null }],
+    )
+
+    expect(rows).toEqual([
+      { month: '2026-01', category: 'Other', spend: 10, shareOfTotal: 1, shareDeltaVsPreviousMonth: null },
     ])
   })
 })

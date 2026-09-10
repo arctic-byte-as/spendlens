@@ -178,9 +178,17 @@ export default async function ReceiptAnalysisPage({
     <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '40px', display: 'grid', gap: '42px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={panelTitle}>Receipt Analysis</div>
-        <Link href="/dashboard/receipts/import" style={actionButtonStyle}>
-          + IMPORT RECEIPTS
-        </Link>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <Link href="/dashboard/receipts/diet" style={actionButtonStyle}>
+            DIET TREND
+          </Link>
+          <Link href="/dashboard/receipts/insights" style={actionButtonStyle}>
+            SAVINGS TIPS
+          </Link>
+          <Link href="/dashboard/receipts/import" style={actionButtonStyle}>
+            + IMPORT RECEIPTS
+          </Link>
+        </div>
       </div>
 
       <section>
