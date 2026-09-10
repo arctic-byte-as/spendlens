@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SPENDLENS — Diet Analysis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300;1,400;1,500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --cream:      #F5F0E8;
+    --cream-dark: #EDE6D6;
+    --carbon:     #1A1A1A;
+    --alcantara:  #242220;
+    --red:        #C8102E;
+    --bronze:     #8B6914;
+    --bronze-lt:  #B8921C;
+    --grid:       #D8D0C0;
+    --muted:      #8A8070;
+    --positive:   #2D6A4F;
+    --warning:    #C8102E;
+  }
+
+  html, body {
+    background: var(--cream);
+    color: var(--carbon);
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+
+  /* NAV */
+  nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 40px;
+    height: 56px;
+    border-bottom: 1px solid var(--grid);
+    background: var(--cream);
+    position: sticky; top: 0; z-index: 10;
+  }
+  .logo {
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 900;
+    font-size: 18px;
+    letter-spacing: 0.25em;
+    color: var(--carbon);
+  }
+  .logo span { color: var(--red); }
+  .nav-meta {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  /* LAYOUT */
+  main {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 48px 40px 80px;
+  }
+
+  /* PAGE HEADER */
+  .page-header {
+    border-bottom: 1px solid var(--grid);
+    padding-bottom: 24px;
+    margin-bottom: 48px;
+  }
+  .page-header .eyebrow {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 0.25em;
+    color: var(--bronze-lt);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .page-header h1 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 28px;
+    font-weight: 900;
+    letter-spacing: 0.1em;
+    line-height: 1.1;
+  }
+  .page-header .subtitle {
+    margin-top: 10px;
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  /* SECTION */
+  section {
+    margin-bottom: 64px;
+  }
+  .section-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--grid);
+  }
+
+  /* STAT CARDS */
+  .stat-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 40px;
+  }
+  .stat-card {
+    background: var(--cream-dark);
+    border: 1px solid var(--grid);
+    padding: 20px;
+  }
+  .stat-card .label {
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .stat-card .value {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--carbon);
+    letter-spacing: 0.05em;
+  }
+  .stat-card .sub {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+  .stat-card.alert .value { color: var(--red); }
+  .stat-card.positive .value { color: var(--positive); }
+
+  /* CHARTS GRID */
+  .charts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-bottom: 40px;
+  }
+  .chart-card {
+    background: var(--cream-dark);
+    border: 1px solid var(--grid);
+    padding: 28px;
+  }
+  .chart-card h3 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 24px;
+  }
+  .chart-wrap {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+  }
+  .chart-wrap canvas {
+    flex-shrink: 0;
+  }
+  .legend {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+  .legend.two-col {
+    grid-template-columns: 1fr 1fr;
+    column-gap: 10px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 9px;
+    color: var(--carbon);
+    white-space: nowrap;
+    overflow: hidden;
+  }
+  .legend-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .legend-name {
+    flex: 1;
+    color: var(--muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .legend-pct { font-weight: 500; }
+
+  /* BAR TABLE */
+  .bar-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .bar-table th {
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 400;
+    text-align: left;
+    padding: 0 0 10px;
+    border-bottom: 1px solid var(--grid);
+  }
+  .bar-table th:last-child { text-align: right; }
+  .bar-table td {
+    padding: 8px 0;
+    border-bottom: 1px solid var(--grid);
+    font-size: 11px;
+    vertical-align: middle;
+  }
+  .bar-table tr:last-child td { border-bottom: none; }
+  .bar-table .cat-name { color: var(--carbon); min-width: 160px; }
+  .bar-table .bar-cell { width: 100%; padding: 8px 16px; }
+  .bar-bg {
+    background: var(--grid);
+    height: 6px;
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.6s ease;
+  }
+  .bar-table .nok { text-align: right; color: var(--muted); min-width: 90px; }
+  .bar-table .pct { text-align: right; font-weight: 500; min-width: 48px; }
+  .flag-red .cat-name { color: var(--red); }
+  .flag-red .bar-fill { background: var(--red); }
+  .flag-amber .cat-name { color: var(--bronze-lt); }
+  .flag-amber .bar-fill { background: var(--bronze-lt); }
+  .flag-green .cat-name { color: var(--positive); }
+  .flag-green .bar-fill { background: var(--positive); }
+
+  /* ASSESSMENT CARDS */
+  .assessment-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+  .assess-card {
+    border: 1px solid var(--grid);
+    padding: 20px;
+  }
+  .assess-card .tag {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    display: inline-block;
+    padding: 3px 8px;
+  }
+  .assess-card.cut { background: #fdf0f0; border-color: #e8c0c0; }
+  .assess-card.cut .tag { background: var(--red); color: #fff; }
+  .assess-card.adapt { background: #fdf8ec; border-color: #e8d8a0; }
+  .assess-card.adapt .tag { background: var(--bronze-lt); color: #fff; }
+  .assess-card.add { background: #f0f6f2; border-color: #a8cdb8; }
+  .assess-card.add .tag { background: var(--positive); color: #fff; }
+  .assess-card h4 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    margin-bottom: 8px;
+  }
+  .assess-card p {
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+  .assess-card .nok-tag {
+    margin-top: 10px;
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--carbon);
+  }
+
+  /* IMPACT TABLE */
+  .impact-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .impact-table th {
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 400;
+    text-align: left;
+    padding: 0 16px 10px 0;
+    border-bottom: 1px solid var(--grid);
+  }
+  .impact-table td {
+    padding: 12px 16px 12px 0;
+    border-bottom: 1px solid var(--grid);
+    font-size: 11px;
+    vertical-align: top;
+  }
+  .impact-table tr:last-child td { border-bottom: none; }
+  .rank-badge {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 14px;
+    font-weight: 900;
+    color: var(--bronze-lt);
+  }
+  .impact-saving {
+    font-weight: 500;
+    color: var(--positive);
+  }
+
+  /* WELL TABLE */
+  .well-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .well-table td {
+    padding: 10px 0;
+    border-bottom: 1px solid var(--grid);
+    font-size: 11px;
+    vertical-align: top;
+  }
+  .well-table tr:last-child td { border-bottom: none; }
+  .well-table .habit { font-weight: 500; color: var(--positive); padding-right: 24px; width: 240px; }
+  .well-table .evidence { color: var(--muted); }
+  .tick {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    background: var(--positive);
+    border-radius: 50%;
+    color: white;
+    font-size: 8px;
+    text-align: center;
+    line-height: 14px;
+    margin-right: 8px;
+    flex-shrink: 0;
+  }
+
+  /* FOOTER */
+  footer {
+    border-top: 1px solid var(--grid);
+    padding: 24px 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: var(--muted);
+    font-size: 10px;
+    letter-spacing: 0.05em;
+  }
+
+  /* ── PRINT ────────────────────────────────────────────────────────────── */
+  @media print {
+    @page {
+      size: A4;
+      margin: 18mm 16mm 18mm 16mm;
+    }
+
+    html, body {
+      background: #fff !important;
+      color: #1A1A1A !important;
+      font-size: 10px;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    nav { display: none; }
+
+    main {
+      padding: 0;
+      max-width: 100%;
+    }
+
+    footer {
+      display: none;
+    }
+
+    /* Page title */
+    .page-header {
+      margin-bottom: 24px;
+      padding-bottom: 12px;
+    }
+    .page-header h1 { font-size: 20px; }
+
+    /* Prevent orphaned headers */
+    .section-title { break-after: avoid; }
+
+    /* Stats row — 4 across on A4 */
+    .stat-row {
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+    .stat-card {
+      padding: 10px 12px;
+      background: #F5F0E8 !important;
+      border: 1px solid #D8D0C0 !important;
+    }
+    .stat-card .value { font-size: 16px; }
+    .stat-row { margin-bottom: 12px; }
+    section { margin-bottom: 20px; }
+    .section-title { margin-bottom: 10px; }
+
+    /* Charts — all 4 on one page */
+    section:has(.charts-grid) {
+      break-inside: avoid;
+      break-before: avoid;
+    }
+    .charts-grid {
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .chart-card {
+      padding: 10px 12px;
+      background: #F5F0E8 !important;
+      border: 1px solid #D8D0C0 !important;
+      break-inside: avoid;
+    }
+    .chart-card h3 { margin-bottom: 10px; }
+    .chart-wrap { gap: 12px; }
+    .chart-wrap canvas { width: 120px !important; height: 120px !important; }
+    .legend { gap: 2px; }
+    .legend-item { font-size: 8px; gap: 4px; }
+    .legend-dot { width: 5px; height: 5px; }
+
+    /* Bar table */
+    section:has(.bar-table) { break-before: page; }
+    .bar-table td, .bar-table th { padding: 5px 0; font-size: 9px; }
+    .bar-fill { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+    /* Assessment grid — 3 across */
+    .assessment-grid {
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+    .assess-card {
+      padding: 12px;
+      break-inside: avoid;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .assess-card p { font-size: 9px; }
+    .assess-card .nok-tag { font-size: 9px; }
+    section:has(.charts-grid) { break-before: page; }
+
+    /* Impact & well tables */
+    .impact-table td, .impact-table th { font-size: 9px; padding: 8px 12px 8px 0; }
+    .well-table td { font-size: 9px; padding: 6px 0; }
+
+    /* Print footer — show data source inline */
+    main::after {
+      content: 'SPENDLENS · Trumf receipt data · 254 transactions · May 2025 – May 2026 · Generated 2026-05-16';
+      display: block;
+      margin-top: 24px;
+      padding-top: 10px;
+      border-top: 1px solid #D8D0C0;
+      font-size: 8px;
+      color: #8A8070;
+      letter-spacing: 0.05em;
+    }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">SPEND<span>LENS</span></div>
+  <div class="nav-meta">Diet Analysis — Trumf Data 2025–2026</div>
+</nav>
+
+<main>
+
+  <!-- PAGE HEADER -->
+  <div class="page-header">
+    <div class="eyebrow">Household Nutrition Report</div>
+    <h1>FAMILY DIET ANALYSIS</h1>
+    <div class="subtitle">Based on 254 Trumf receipts · May 2025 – May 2026 · ~165,000 NOK food spend</div>
+  </div>
+
+  <!-- HEADLINE STATS -->
+  <section>
+    <div class="section-title">Headline Numbers</div>
+    <div class="stat-row">
+      <div class="stat-card">
+        <div class="label">Total food spend</div>
+        <div class="value">165k</div>
+        <div class="sub">NOK across 254 receipts</div>
+      </div>
+      <div class="stat-card alert">
+        <div class="label">Candy & sweets</div>
+        <div class="value">12,272</div>
+        <div class="sub">NOK · 7.4% of food budget</div>
+      </div>
+      <div class="stat-card alert">
+        <div class="label">Processed meat</div>
+        <div class="value">9,497</div>
+        <div class="sub">NOK · WHO Group 1 carcinogen</div>
+      </div>
+      <div class="stat-card positive">
+        <div class="label">Vegetables (top category)</div>
+        <div class="value">16,351</div>
+        <div class="sub">NOK · 9.9% — leading spend</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ASSESSMENT -->
+  <section>
+    <div class="section-title">Dietary Assessment</div>
+    <div class="assessment-grid">
+
+      <div class="assess-card cut">
+        <span class="tag">Cut out</span>
+        <h4>Bulk Candy / Smågodt</h4>
+        <p>Purchased 35 times for 5,857 NOK — nearly 500 NOK/month on pick-n-mix alone. Pure added sugar, zero nutrition.</p>
+        <div class="nok-tag">12,272 NOK total · 7.4% of food</div>
+      </div>
+
+      <div class="assess-card cut">
+        <span class="tag">Cut out</span>
+        <h4>Processed Meat</h4>
+        <p>Bacon (26×), salami, chorizo, knackwurst weekly. WHO Group 1 carcinogen. NNR recommends max 50g/week for a family.</p>
+        <div class="nok-tag">9,497 NOK total · 5.7% of food</div>
+      </div>
+
+      <div class="assess-card cut">
+        <span class="tag">Cut out</span>
+        <h4>Sweet Drinks & Chips</h4>
+        <p>Cola Zero (14× 1.5L), Solo Super, Superchips (17×), Kims Potetgull (17×). Ultra-processed, high salt, no nutrition.</p>
+        <div class="nok-tag">5,304 NOK combined</div>
+      </div>
+
+      <div class="assess-card adapt">
+        <span class="tag">Moderate</span>
+        <h4>Cheese</h4>
+        <p>More spend on cheese than fish. Selbu Blå bought 39 times (1,509 NOK). Keep mozzarella and feta; reduce Norvegia blocks.</p>
+        <div class="nok-tag">13,546 NOK · 8.2% of food</div>
+      </div>
+
+      <div class="assess-card adapt">
+        <span class="tag">Moderate</span>
+        <h4>Red Meat</h4>
+        <p>Mince, pork strips, ribeye regularly. NNR max: 350–500g cooked/week. Combined with processed meat, likely over guidelines.</p>
+        <div class="nok-tag">13,044 NOK · 7.9% of food</div>
+      </div>
+
+      <div class="assess-card adapt">
+        <span class="tag">Moderate</span>
+        <h4>Alcohol</h4>
+        <p>Mostly lite variants (Ringnes Lite, Aass Lite) but still 5.5% of food budget. NNR 2023: no safe level of alcohol.</p>
+        <div class="nok-tag">9,099 NOK · 5.5% of food</div>
+      </div>
+
+      <div class="assess-card add">
+        <span class="tag">Eat more</span>
+        <h4>Fish & Seafood</h4>
+        <p>Biggest nutritional gap. Some hyse (19×) and occasional laks, but far below the NNR target of 2–3 meals/week. Rich in omega-3, iodine, selenium, vitamin D.</p>
+        <div class="nok-tag">Only 4,565 NOK · 2.8% of food</div>
+      </div>
+
+      <div class="assess-card add">
+        <span class="tag">Eat more</span>
+        <h4>Legumes</h4>
+        <p>White beans (19×) and chickpeas (18×) present — good start. Lentils nearly absent. Legumes are cheap, filling, and strongly linked to reduced chronic disease risk.</p>
+        <div class="nok-tag">5,276 NOK · 3.2% — target 6–8%</div>
+      </div>
+
+      <div class="assess-card add">
+        <span class="tag">Eat more</span>
+        <h4>Vegetable Variety</h4>
+        <p>Heavy on cucumber (49×), carrots (32×), salad (41×). Good foundation — add more calorie-dense and diverse veg: squash, beets, leafy greens, cabbage.</p>
+        <div class="nok-tag">16,351 NOK — broaden variety</div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- HIGHEST IMPACT -->
+  <section>
+    <div class="section-title">3 Highest-Impact Changes</div>
+    <table class="impact-table">
+      <thead>
+        <tr>
+          <th style="width:40px">#</th>
+          <th>Change</th>
+          <th>Est. Annual Saving</th>
+          <th>Health Benefit</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="rank-badge">01</span></td>
+          <td>Cut smågodt/candy habit by 75%</td>
+          <td class="impact-saving">~9,000 NOK</td>
+          <td style="color:var(--muted)">Less sugar, better teeth, reduced cravings cascade</td>
+        </tr>
+        <tr>
+          <td><span class="rank-badge">02</span></td>
+          <td>Replace processed meat with fish 2×/week</td>
+          <td class="impact-saving">~4,000 NOK freed</td>
+          <td style="color:var(--muted)">Reduced colorectal cancer risk, more omega-3</td>
+        </tr>
+        <tr>
+          <td><span class="rank-badge">03</span></td>
+          <td>Double legume purchases, halve red meat</td>
+          <td class="impact-saving">Cost-neutral</td>
+          <td style="color:var(--muted)">Better fibre, heart health, gut microbiome</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- PIE CHARTS -->
+  <section>
+    <div class="section-title">Diet Composition</div>
+    <div class="charts-grid">
+
+      <div class="chart-card">
+        <h3>Full Diet Breakdown</h3>
+        <div class="chart-wrap">
+          <canvas id="pieAll" width="180" height="180"></canvas>
+          <div class="legend two-col" id="legendAll"></div>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <h3>Protein Sources</h3>
+        <div class="chart-wrap">
+          <canvas id="pieProtein" width="180" height="180"></canvas>
+          <div class="legend" id="legendProtein"></div>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <h3>"Unhealthy" Spend Breakdown</h3>
+        <div class="chart-wrap">
+          <canvas id="pieUnhealthy" width="180" height="180"></canvas>
+          <div class="legend" id="legendUnhealthy"></div>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <h3>Dairy Split</h3>
+        <div class="chart-wrap">
+          <canvas id="pieDairy" width="180" height="180"></canvas>
+          <div class="legend" id="legendDairy"></div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- BAR TABLE -->
+  <section>
+    <div class="section-title">Spend by Category vs. Target</div>
+    <table class="bar-table">
+      <thead>
+        <tr>
+          <th>Category</th>
+          <th class="bar-cell">Distribution</th>
+          <th>NOK</th>
+          <th>%</th>
+        </tr>
+      </thead>
+      <tbody id="barTableBody"></tbody>
+    </table>
+  </section>
+
+  <!-- DOING WELL -->
+  <section>
+    <div class="section-title">What the Family Is Doing Well</div>
+    <table class="well-table">
+      <tbody>
+        <tr>
+          <td class="habit"><span class="tick">✓</span>Vegetables lead spend</td>
+          <td class="evidence">16,351 NOK — the #1 food category by spend. Solid foundation.</td>
+        </tr>
+        <tr>
+          <td class="habit"><span class="tick">✓</span>Chicken dominates protein</td>
+          <td class="evidence">Top 2 meat items are chicken fillet and whole chicken. Lean, healthy choice.</td>
+        </tr>
+        <tr>
+          <td class="habit"><span class="tick">✓</span>Low-fat milk daily</td>
+          <td class="evidence">213 purchases of 1.75L LETTMELK 0.5% — a consistent, healthy daily staple.</td>
+        </tr>
+        <tr>
+          <td class="habit"><span class="tick">✓</span>Natural yoghurt</td>
+          <td class="evidence">Regular Q yoghurt naturell + Greek yoghurt — good probiotic and protein source.</td>
+        </tr>
+        <tr>
+          <td class="habit"><span class="tick">✓</span>Eggs</td>
+          <td class="evidence">39 × 18-packs of free-range eggs — excellent, underrated whole food nutrition.</td>
+        </tr>
+        <tr>
+          <td class="habit"><span class="tick">✓</span>Olive oil as primary fat</td>
+          <td class="evidence">5× 1L bottles — correct choice for cooking and dressings.</td>
+        </tr>
+        <tr>
+          <td class="habit"><span class="tick">✓</span>Blueberries year-round</td>
+          <td class="evidence">32 purchases — antioxidant-rich superfood, consistently in the basket.</td>
+        </tr>
+        <tr>
+          <td class="habit"><span class="tick">✓</span>Cooking from scratch</td>
+          <td class="evidence">Fresh koriander (18×), whole ingredients dominate. Ready meals are a small fraction.</td>
+        </tr>
+        <tr>
+          <td class="habit"><span class="tick">✓</span>All alcohol is lite/low-alc</td>
+          <td class="evidence">Ringnes Lite, Aass Lite, Hansa Null% — conscious harm-reduction approach.</td>
+        </tr>
+        <tr>
+          <td class="habit"><span class="tick">✓</span>Consistent gluten-free diet</td>
+          <td class="evidence">Every bread, pasta and grain product is GF — well-managed, likely coeliac household.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+</main>
+
+<footer>
+  <div>SPENDLENS · Household Nutrition Analysis</div>
+  <div>Source: Trumf receipts · 254 transactions · 2025-05-16 – 2026-05-16</div>
+  <div>Generated: 2026-05-16</div>
+</footer>
+
+<script>
+// ── Data ────────────────────────────────────────────────────────────────────
+
+const palette = {
+  veg:       '#2D6A4F',
+  fruit:     '#52B788',
+  poultry:   '#8B6914',
+  redmeat:   '#C8102E',
+  procmeat:  '#E63946',
+  fish:      '#457B9D',
+  legumes:   '#1D3557',
+  dairy:     '#A8DADC',
+  eggs:      '#F1C40F',
+  grains:    '#B5838D',
+  bread:     '#D4A5A5',
+  pasta:     '#E9C46A',
+  candy:     '#FF6B6B',
+  alcohol:   '#6D6875',
+  drinks:    '#F4A261',
+  chips:     '#E76F51',
+  oil:       '#95D5B2',
+  baked:     '#FFAFCC',
+  ice:       '#BDE0FE',
+  ready:     '#CDB4DB',
+  other:     '#ADB5BD',
+};
+
+const allData = [
+  { label: 'Vegetables',         value: 16351, color: palette.veg,      flag: 'green' },
+  { label: 'Poultry',            value: 15171, color: palette.poultry,  flag: 'green' },
+  { label: 'Dairy - Cheese',     value: 13546, color: palette.dairy,    flag: 'amber' },
+  { label: 'Red Meat',           value: 13044, color: palette.redmeat,  flag: 'amber' },
+  { label: 'Candy & Sweets',     value: 12272, color: palette.candy,    flag: 'red'   },
+  { label: 'Fruit',              value: 10609, color: palette.fruit,    flag: 'green' },
+  { label: 'Processed Meat',     value:  9497, color: palette.procmeat, flag: 'red'   },
+  { label: 'Alcohol',            value:  9099, color: palette.alcohol,  flag: 'red'   },
+  { label: 'Dairy - Milk',       value:  7976, color: '#74C2C9',        flag: 'green' },
+  { label: 'Whole Grains/Oats',  value:  7287, color: palette.grains,   flag: 'green' },
+  { label: 'Dairy - Yoghurt',    value:  6069, color: '#A8E6CF',        flag: 'green' },
+  { label: 'Bread - Refined',    value:  5848, color: palette.bread,    flag: 'amber' },
+  { label: 'Legumes & Nuts',     value:  5276, color: palette.legumes,  flag: 'amber' },
+  { label: 'Oils & Condiments',  value:  4804, color: palette.oil,      flag: 'green' },
+  { label: 'Fish & Seafood',     value:  4565, color: palette.fish,     flag: 'amber' },
+  { label: 'Pasta & Rice',       value:  3834, color: palette.pasta,    flag: 'green' },
+  { label: 'Dairy - Cream/But',  value:  2971, color: '#FFDFBA',        flag: 'amber' },
+  { label: 'Eggs',               value:  2963, color: palette.eggs,     flag: 'green' },
+  { label: 'Sweet Drinks',       value:  2754, color: palette.drinks,   flag: 'red'   },
+  { label: 'Chips & Snacks',     value:  2550, color: palette.chips,    flag: 'red'   },
+  { label: 'Ready Meals',        value:  2250, color: palette.ready,    flag: 'amber' },
+  { label: 'Baked Sweets',       value:  1826, color: palette.baked,    flag: 'red'   },
+  { label: 'Spices & Baking',    value:  1726, color: '#D8E2DC',        flag: 'green' },
+  { label: 'Juice',              value:  1550, color: '#FFD60A',        flag: 'amber' },
+  { label: 'Water & Tonic',      value:  1195, color: '#90E0EF',        flag: 'green' },
+  { label: 'Ice Cream',          value:   409, color: palette.ice,      flag: 'red'   },
+];
+
+const proteinData = [
+  { label: 'Poultry',        value: 15171, color: palette.poultry  },
+  { label: 'Red Meat',       value: 13044, color: palette.redmeat  },
+  { label: 'Processed Meat', value:  9497, color: palette.procmeat },
+  { label: 'Dairy - Cheese', value: 13546, color: palette.dairy    },
+  { label: 'Eggs',           value:  2963, color: palette.eggs     },
+  { label: 'Fish & Seafood', value:  4565, color: palette.fish     },
+  { label: 'Legumes & Nuts', value:  5276, color: palette.legumes  },
+];
+
+const unhealthyData = [
+  { label: 'Candy & Sweets',  value: 12272, color: palette.candy   },
+  { label: 'Alcohol',         value:  9099, color: palette.alcohol  },
+  { label: 'Sweet Drinks',    value:  2754, color: palette.drinks   },
+  { label: 'Chips & Snacks',  value:  2550, color: palette.chips   },
+  { label: 'Baked Sweets',    value:  1826, color: palette.baked   },
+  { label: 'Ice Cream',       value:   409, color: palette.ice     },
+];
+
+const dairyData = [
+  { label: 'Cheese',     value: 13546, color: palette.dairy    },
+  { label: 'Milk',       value:  7976, color: '#74C2C9'        },
+  { label: 'Yoghurt',    value:  6069, color: '#A8E6CF'        },
+  { label: 'Cream/Butter', value: 2971, color: '#FFDFBA'       },
+];
+
+// ── Pie Chart Renderer ────────────────────────────────────────────────────
+
+function drawPie(canvasId, legendId, data) {
+  const canvas = document.getElementById(canvasId);
+  const ctx = canvas.getContext('2d');
+  const total = data.reduce((s, d) => s + d.value, 0);
+  const cx = canvas.width / 2;
+  const cy = canvas.height / 2;
+  const r = Math.min(cx, cy) - 4;
+  let angle = -Math.PI / 2;
+
+  data.forEach(d => {
+    const slice = (d.value / total) * 2 * Math.PI;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, r, angle, angle + slice);
+    ctx.closePath();
+    ctx.fillStyle = d.color;
+    ctx.fill();
+    ctx.strokeStyle = '#F5F0E8';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    angle += slice;
+  });
+
+  // centre hole
+  ctx.beginPath();
+  ctx.arc(cx, cy, r * 0.48, 0, 2 * Math.PI);
+  ctx.fillStyle = '#EDE6D6';
+  ctx.fill();
+
+  // legend
+  const legend = document.getElementById(legendId);
+  data.forEach(d => {
+    const pct = ((d.value / total) * 100).toFixed(1);
+    const item = document.createElement('div');
+    item.className = 'legend-item';
+    item.innerHTML = `
+      <span class="legend-dot" style="background:${d.color}"></span>
+      <span class="legend-name">${d.label}</span>
+      <span class="legend-pct">${pct}%</span>
+    `;
+    legend.appendChild(item);
+  });
+}
+
+// ── Bar Table ─────────────────────────────────────────────────────────────
+
+function buildBarTable() {
+  const total = allData.reduce((s, d) => s + d.value, 0);
+  const tbody = document.getElementById('barTableBody');
+  const maxPct = Math.max(...allData.map(d => d.value / total * 100));
+
+  allData.forEach(d => {
+    const pct = (d.value / total * 100);
+    const widthPct = (pct / maxPct * 100).toFixed(1);
+    const nokFmt = d.value.toLocaleString('no-NO');
+    const flagClass = d.flag === 'red' ? 'flag-red' : d.flag === 'amber' ? 'flag-amber' : 'flag-green';
+    const fillColor = d.flag === 'red' ? 'var(--red)' : d.flag === 'amber' ? 'var(--bronze-lt)' : 'var(--positive)';
+
+    const tr = document.createElement('tr');
+    tr.className = flagClass;
+    tr.innerHTML = `
+      <td class="cat-name">${d.label}</td>
+      <td class="bar-cell">
+        <div class="bar-bg">
+          <div class="bar-fill" style="width:${widthPct}%;background:${fillColor}"></div>
+        </div>
+      </td>
+      <td class="nok">${nokFmt}</td>
+      <td class="pct">${pct.toFixed(1)}%</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────
+
+drawPie('pieAll',       'legendAll',       allData);
+drawPie('pieProtein',   'legendProtein',   proteinData);
+drawPie('pieUnhealthy', 'legendUnhealthy', unhealthyData);
+drawPie('pieDairy',     'legendDairy',     dairyData);
+buildBarTable();
+</script>
+</body>
+</html>
