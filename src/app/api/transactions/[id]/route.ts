@@ -6,7 +6,7 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const auth = await requireAuthenticatedRouteContext()
+  const auth = await requireAuthenticatedRouteContext(request)
   if (auth instanceof NextResponse) return auth
   const { supabase, user } = auth
 
@@ -60,7 +60,7 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const auth = await requireAuthenticatedRouteContext()
+  const auth = await requireAuthenticatedRouteContext(request)
   if (auth instanceof NextResponse) return auth
   const { supabase, user } = auth
 

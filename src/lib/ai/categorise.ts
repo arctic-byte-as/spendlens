@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { CATEGORIES, type Category, isCanonicalCategory } from '@/lib/transactions/categories'
 import { ANTHROPIC_MODEL, cachedSystemPrompt } from './model'
+import { logSecurityEvent } from '@/lib/logging/securityLog'
 
 const BATCH_SIZE = 50
 
@@ -117,6 +118,15 @@ export async function* categoriseTransactionBatches(
       yield batchResults
     } catch (error) {
       console.error(`Categorisation batch ${i} failed:`, error)
+      // Reason is a fixed label, not error.message: that string can embed a
+      // slice of the raw Claude response text (see the parse-failure throw
+      // above), which must never reach the security log.
+      logSecurityEvent({
+        eventType: 'ai_validation_failure',
+        route: 'lib/ai/categorise',
+        actor: 'unknown',
+        reason: 'categorisation_batch_failed',
+      })
       // Preserve failed rows as uncategorised instead of pretending they are OTHER.
       yield batches[i].map(tx => ({
         id: tx.id,

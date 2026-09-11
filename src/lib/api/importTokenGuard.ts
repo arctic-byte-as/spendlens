@@ -2,6 +2,9 @@ import { createHash } from 'crypto'
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { hasFlag } from '@/lib/features'
+import { logSecurityEvent } from '@/lib/logging/securityLog'
+
+const ROUTE = '/api/receipts/import/bookmarklet'
 
 export const IMPORT_TOKEN_RATE_LIMIT = 20
 export const IMPORT_TOKEN_RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000
@@ -62,6 +65,12 @@ export async function requireImportTokenContext(request: Request): Promise<Impor
   const nextRequestCount = withinWindow ? tokenRow.request_count + 1 : 1
 
   if (withinWindow && tokenRow.request_count >= IMPORT_TOKEN_RATE_LIMIT) {
+    logSecurityEvent({
+      eventType: 'rate_limit_exceeded',
+      route: ROUTE,
+      actor: tokenRow.user_id,
+      reason: 'import_token_rate_limit',
+    })
     return NextResponse.json({ error: 'Rate limit exceeded, try again later' }, { status: 429 })
   }
 

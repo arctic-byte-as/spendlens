@@ -7,7 +7,12 @@ jest.mock('@anthropic-ai/sdk', () => {
   return { __esModule: true, default: MockAnthropic, Anthropic: MockAnthropic }
 })
 
-import { receiptInsights, dietTrendInsights, type ReceiptInsightsInput } from './insights'
+const mockLogSecurityEvent = jest.fn()
+jest.mock('@/lib/logging/securityLog', () => ({
+  logSecurityEvent: (event: unknown) => mockLogSecurityEvent(event),
+}))
+
+import { generateInsights, receiptInsights, dietTrendInsights, type ReceiptInsightsInput } from './insights'
 import type { MonthlyDietCategoryShare } from '@/lib/receipts/analysis'
 import type { DietCategoryTarget } from '@/lib/receipts/dietTargets'
 
@@ -26,6 +31,7 @@ const baseInput: ReceiptInsightsInput = {
 
 beforeEach(() => {
   mockCreate.mockReset()
+  mockLogSecurityEvent.mockReset()
 })
 
 describe('receiptInsights', () => {
@@ -72,6 +78,27 @@ describe('receiptInsights', () => {
     mockCreate.mockResolvedValue(textResponse(JSON.stringify({ oops: 'not an array' })))
     const tips = await receiptInsights(baseInput)
     expect(tips).toEqual([])
+  })
+
+  it('logs an ai_validation_failure event on unparseable model output', async () => {
+    mockCreate.mockResolvedValue(textResponse('not json at all'))
+    await receiptInsights(baseInput)
+
+    expect(mockLogSecurityEvent).toHaveBeenCalledTimes(1)
+    expect(mockLogSecurityEvent).toHaveBeenCalledWith({
+      eventType: 'ai_validation_failure',
+      route: 'lib/ai/insights',
+      actor: 'unknown',
+      reason: 'receipt_insights_parse_failed',
+    })
+  })
+
+  it('does not log a security event when receipt insights parse successfully', async () => {
+    mockCreate.mockResolvedValue(
+      textResponse(JSON.stringify([{ category: 'Candy', title: 'Cut smågodt', saving_amount: 400, evidence: 'ok' }])),
+    )
+    await receiptInsights(baseInput)
+    expect(mockLogSecurityEvent).not.toHaveBeenCalled()
   })
 })
 
@@ -132,5 +159,59 @@ describe('dietTrendInsights', () => {
 
     const verdicts = await dietTrendInsights(trend, targets)
     expect(verdicts[0].verdict).toBe('improving')
+  })
+
+  it('logs an ai_validation_failure event when the model output is malformed', async () => {
+    mockCreate.mockResolvedValue(textResponse('garbage, not json'))
+    await dietTrendInsights(trend, targets)
+
+    expect(mockLogSecurityEvent).toHaveBeenCalledTimes(1)
+    expect(mockLogSecurityEvent).toHaveBeenCalledWith({
+      eventType: 'ai_validation_failure',
+      route: 'lib/ai/insights',
+      actor: 'unknown',
+      reason: 'diet_trend_insights_parse_failed',
+    })
+  })
+
+  it('does not log a security event when the model output parses successfully', async () => {
+    mockCreate.mockResolvedValue(
+      textResponse(JSON.stringify([{ category: 'Candy & Sweets', summary: 'Great progress cutting candy!' }])),
+    )
+    await dietTrendInsights(trend, targets)
+    expect(mockLogSecurityEvent).not.toHaveBeenCalled()
+  })
+})
+
+describe('generateInsights — AI validation failure logging', () => {
+  it('logs an ai_validation_failure event without leaking the raw Claude response', async () => {
+    const sensitiveResponseText = '[card 4242424242424242 — not valid JSON]'
+    mockCreate.mockResolvedValue({
+      content: [{ type: 'text', text: sensitiveResponseText }],
+    })
+
+    const tips = await generateInsights({ GROCERIES: 500 })
+
+    expect(tips).toEqual([])
+    expect(mockLogSecurityEvent).toHaveBeenCalledTimes(1)
+    const event = mockLogSecurityEvent.mock.calls[0][0]
+    expect(event).toEqual({
+      eventType: 'ai_validation_failure',
+      route: 'lib/ai/insights',
+      actor: 'unknown',
+      reason: 'insights_parse_failed',
+    })
+    expect(JSON.stringify(event)).not.toContain('4242424242424242')
+    expect(JSON.stringify(event)).not.toContain(sensitiveResponseText)
+  })
+
+  it('does not log a security event when insights parse successfully', async () => {
+    mockCreate.mockResolvedValue({
+      content: [{ type: 'text', text: '[{"category":"GROCERIES","title":"Buy less","saving_amount":50,"evidence":"trend"}]' }],
+    })
+
+    await generateInsights({ GROCERIES: 500 })
+
+    expect(mockLogSecurityEvent).not.toHaveBeenCalled()
   })
 })
