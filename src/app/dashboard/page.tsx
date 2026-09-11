@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createServerClient } from '@/lib/supabase/server'
 import { formatSignedAmount } from '@/lib/transactions/table'
+import { getLatestUploadSavingTips } from '@/lib/insights/uploadInsights'
 import UpgradeButton from '@/components/UpgradeButton'
 
 const MAX_RECENT_TRANSACTIONS = 8
@@ -17,15 +18,6 @@ type TransactionRow = {
   currency: string | null
 }
 
-type InsightRow = {
-  top_saving_tips: Array<{
-    category?: string
-    title?: string
-    saving_amount?: number
-    evidence?: string
-  }> | null
-}
-
 function formatCurrency(amount: number, currency = 'NOK') {
   return `${Math.round(amount).toLocaleString('nb-NO')} ${currency}`
 }
@@ -35,7 +27,7 @@ export default async function DashboardPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/')
 
-  const [{ data: transactions }, { data: uploads }, { data: insights }, { data: profile }] = await Promise.all([
+  const [{ data: transactions }, { data: uploads }, savingTips, { data: profile }] = await Promise.all([
     supabase
       .from('transactions')
       .select('id, date, merchant, description, category, category_source, amount, currency')
@@ -48,13 +40,7 @@ export default async function DashboardPage() {
       .eq('user_id', user.id)
       .order('uploaded_at', { ascending: false })
       .limit(5),
-    supabase
-      .from('insights')
-      .select('top_saving_tips')
-      .eq('user_id', user.id)
-      .not('upload_id', 'is', null)
-      .order('generated_at', { ascending: false })
-      .limit(1),
+    getLatestUploadSavingTips(supabase, user.id),
     supabase
       .from('profiles')
       .select('subscription_tier, subscription_status')
@@ -68,7 +54,7 @@ export default async function DashboardPage() {
   const isPastDue = profile?.subscription_status === 'past_due'
   const insightsLocked = isFreeTier || isPastDue
   const trialUsed = doneUploads.length >= 1
-  const latestTips = ((insights?.[0] as InsightRow | undefined)?.top_saving_tips || []).slice(0, 4)
+  const latestTips = savingTips.slice(0, 4)
   const currency = rows.find(row => row.currency)?.currency || 'NOK'
 
   const totalIncome = rows.reduce((sum, row) => {

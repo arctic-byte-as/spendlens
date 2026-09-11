@@ -26,6 +26,30 @@ function isValidSavingTip(value: unknown): value is SavingTip {
   )
 }
 
+type CreatedMessage = Anthropic.Message
+
+/**
+ * Shared response-extraction step for every AI entry point in this file: pull the first text
+ * content block (guarding against an empty/non-text `content` array, which the API can return),
+ * find the JSON array inside it, and parse it. Returns null on any failure so callers can degrade
+ * to a safe empty/fallback result rather than throwing.
+ */
+function extractJsonArray(message: CreatedMessage, errorLabel: string): unknown[] | null {
+  const content = message.content[0]
+  if (content?.type !== 'text') return null
+
+  const jsonMatch = content.text.match(/\[[\s\S]*\]/)
+  if (!jsonMatch) return null
+
+  try {
+    const parsed = JSON.parse(jsonMatch[0])
+    return Array.isArray(parsed) ? parsed : null
+  } catch {
+    console.error(`Failed to parse ${errorLabel} response`)
+    return null
+  }
+}
+
 export async function generateInsights(
   categoryTotals: Record<string, number>
 ): Promise<SavingTip[]> {
@@ -61,19 +85,8 @@ No other text, no markdown. Just the JSON array.`
     }],
   })
 
-  const content = message.content[0]
-  if (content?.type !== 'text') return []
-
-  try {
-    const jsonMatch = content.text.match(/\[[\s\S]*\]/)
-    if (!jsonMatch) return []
-    const parsed = JSON.parse(jsonMatch[0])
-    if (!Array.isArray(parsed)) return []
-
-    const tips = parsed.filter(isValidSavingTip)
-    return tips.sort((a, b) => b.saving_amount - a.saving_amount).slice(0, 5)
-  } catch {
-    console.error('Failed to parse insights response')
+  const parsed = extractJsonArray(message, 'insights')
+  if (!parsed) {
     logSecurityEvent({
       eventType: 'ai_validation_failure',
       route: 'lib/ai/insights',
@@ -82,6 +95,9 @@ No other text, no markdown. Just the JSON array.`
     })
     return []
   }
+
+  const tips = parsed.filter(isValidSavingTip)
+  return tips.sort((a, b) => b.saving_amount - a.saving_amount).slice(0, 5)
 }
 
 export interface ReceiptInsightsInput {
@@ -132,22 +148,8 @@ No other text, no markdown. Just the JSON array.`
     }],
   })
 
-  const content = message.content[0]
-  if (content?.type !== 'text') return []
-
-  try {
-    const jsonMatch = content.text.match(/\[[\s\S]*\]/)
-    if (!jsonMatch) return []
-    const parsed = JSON.parse(jsonMatch[0])
-    if (!Array.isArray(parsed)) return []
-
-    const tips = parsed
-      .filter(isValidSavingTip)
-      .map(tip => ({ ...tip, source: 'receipt_analysis' }))
-
-    return tips.sort((a, b) => b.saving_amount - a.saving_amount).slice(0, 5)
-  } catch {
-    console.error('Failed to parse receipt insights response')
+  const parsed = extractJsonArray(message, 'receipt insights')
+  if (!parsed) {
     logSecurityEvent({
       eventType: 'ai_validation_failure',
       route: 'lib/ai/insights',
@@ -156,6 +158,12 @@ No other text, no markdown. Just the JSON array.`
     })
     return []
   }
+
+  const tips = parsed
+    .filter(isValidSavingTip)
+    .map(tip => ({ ...tip, source: 'receipt_analysis' }))
+
+  return tips.sort((a, b) => b.saving_amount - a.saving_amount).slice(0, 5)
 }
 
 export type DietCategoryVerdict = {
@@ -211,38 +219,29 @@ No other text, no markdown. Just the JSON array, one element per category given,
     }],
   })
 
-  const content = message.content[0]
+  const parsed = extractJsonArray(message, 'diet trend insights')
   const summaryByCategory = new Map<string, string>()
 
-  if (content?.type === 'text') {
-    try {
-      const jsonMatch = content.text.match(/\[[\s\S]*\]/)
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0])
-        if (Array.isArray(parsed)) {
-          for (const entry of parsed) {
-            if (
-              entry && typeof entry === 'object' &&
-              typeof (entry as Record<string, unknown>).category === 'string' &&
-              typeof (entry as Record<string, unknown>).summary === 'string'
-            ) {
-              summaryByCategory.set(
-                (entry as Record<string, unknown>).category as string,
-                (entry as Record<string, unknown>).summary as string,
-              )
-            }
-          }
-        }
+  if (parsed) {
+    for (const entry of parsed) {
+      if (
+        entry && typeof entry === 'object' &&
+        typeof (entry as Record<string, unknown>).category === 'string' &&
+        typeof (entry as Record<string, unknown>).summary === 'string'
+      ) {
+        summaryByCategory.set(
+          (entry as Record<string, unknown>).category as string,
+          (entry as Record<string, unknown>).summary as string,
+        )
       }
-    } catch {
-      console.error('Failed to parse diet trend insights response')
-      logSecurityEvent({
-        eventType: 'ai_validation_failure',
-        route: 'lib/ai/insights',
-        actor: 'unknown',
-        reason: 'diet_trend_insights_parse_failed',
-      })
     }
+  } else {
+    logSecurityEvent({
+      eventType: 'ai_validation_failure',
+      route: 'lib/ai/insights',
+      actor: 'unknown',
+      reason: 'diet_trend_insights_parse_failed',
+    })
   }
 
   return computed.map(c => ({
