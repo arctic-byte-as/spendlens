@@ -10,9 +10,8 @@ import {
   getMonthlySavingsRate,
   getMonthlyVatSplit,
   getTopPurchasedItems,
-  type ReceiptAnalysisRow,
-  type ReceiptItemAnalysisRow,
 } from '@/lib/receipts/analysis'
+import { fetchAllReceipts, fetchAllReceiptItems } from '@/lib/receipts/fetchAll'
 
 type SearchParams = Record<string, string | string[] | undefined>
 
@@ -103,20 +102,11 @@ export default async function ReceiptAnalysisPage({
     redirect('/dashboard')
   }
 
-  const [{ data: receiptRows }, { data: itemRows }] = await Promise.all([
-    supabase
-      .from('receipts')
-      .select('receipt_id, date, chain, total_amount, currency')
-      .eq('user_id', user.id)
-      .order('date', { ascending: true }),
-    supabase
-      .from('receipt_items')
-      .select('receipt_id, name, quantity, unit, total_price, bonus_percent, vat_percent, savings_amount')
-      .eq('user_id', user.id),
+  const [receipts, items] = await Promise.all([
+    fetchAllReceipts(supabase, user.id),
+    fetchAllReceiptItems(supabase, user.id),
   ])
 
-  const receipts = (receiptRows || []) as ReceiptAnalysisRow[]
-  const items = (itemRows || []) as ReceiptItemAnalysisRow[]
   const currency = getCurrency(receipts)
 
   const chainMonthly = getMonthlyChainSpend(receipts)

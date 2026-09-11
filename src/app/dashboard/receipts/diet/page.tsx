@@ -2,11 +2,8 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createServerClient } from '@/lib/supabase/server'
 import { hasFlag } from '@/lib/features'
-import {
-  getMonthlyDietCategoryTrend,
-  type ReceiptAnalysisRow,
-  type ReceiptItemAnalysisRow,
-} from '@/lib/receipts/analysis'
+import { getMonthlyDietCategoryTrend } from '@/lib/receipts/analysis'
+import { fetchAllReceipts, fetchAllReceiptItems } from '@/lib/receipts/fetchAll'
 import { DIET_CATEGORY_GROUPS, type DietCategoryGroup } from '@/lib/receipts/dietCategories'
 import { dietTrendInsights, type DietCategoryVerdict } from '@/lib/ai/insights'
 import { getFreshCachedInsights, writeInsightsCache } from '@/lib/receipts/insightsCache'
@@ -62,6 +59,37 @@ function formatDeltaPp(value: number | null): string {
   return `${pp > 0 ? '+' : ''}${pp}pp`
 }
 
+const SPARKLINE_WIDTH = 160
+const SPARKLINE_HEIGHT = 32
+const SPARKLINE_PAD = 3
+
+// Compact SVG trend line for a category's share-of-spend across all months with data, in
+// chronological order. No charting library — matches the rest of the app's pure-CSS/SVG bars.
+function Sparkline({ values, color }: { values: number[]; color: string }) {
+  if (values.length < 2) return null
+
+  const max = Math.max(...values, 0.0001)
+  const innerW = SPARKLINE_WIDTH - SPARKLINE_PAD * 2
+  const innerH = SPARKLINE_HEIGHT - SPARKLINE_PAD * 2
+  const stepX = innerW / (values.length - 1)
+
+  const points = values.map((v, i) => {
+    const x = SPARKLINE_PAD + i * stepX
+    const y = SPARKLINE_PAD + innerH - (v / max) * innerH
+    return [x, y] as const
+  })
+
+  const path = points.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ')
+  const [lastX, lastY] = points[points.length - 1]
+
+  return (
+    <svg width={SPARKLINE_WIDTH} height={SPARKLINE_HEIGHT} style={{ display: 'block' }}>
+      <path d={path} fill="none" stroke={color} strokeWidth={1.5} />
+      <circle cx={lastX} cy={lastY} r={2} fill={color} />
+    </svg>
+  )
+}
+
 export default async function DietTrendPage({
   searchParams,
 }: {
@@ -88,20 +116,10 @@ export default async function DietTrendPage({
   const activeGroup = (Array.isArray(groupParam) ? groupParam[0] : groupParam) as DietCategoryGroup | 'all' | undefined
   const forceRefresh = searchParams?.refresh === '1'
 
-  const [{ data: receiptRows }, { data: itemRows }] = await Promise.all([
-    supabase
-      .from('receipts')
-      .select('receipt_id, date, chain, total_amount, currency')
-      .eq('user_id', user.id)
-      .order('date', { ascending: true }),
-    supabase
-      .from('receipt_items')
-      .select('receipt_id, name, quantity, unit, total_price, bonus_percent, vat_percent, savings_amount, diet_category')
-      .eq('user_id', user.id),
+  const [receipts, items] = await Promise.all([
+    fetchAllReceipts(supabase, user.id),
+    fetchAllReceiptItems(supabase, user.id),
   ])
-
-  const receipts = (receiptRows || []) as ReceiptAnalysisRow[]
-  const items = (itemRows || []) as ReceiptItemAnalysisRow[]
 
   if (receipts.length === 0) {
     return (
@@ -120,7 +138,11 @@ export default async function DietTrendPage({
   }
 
   const trend = getMonthlyDietCategoryTrend(receipts, items)
-  const months = Array.from(new Set(trend.map(row => row.month))).sort()
+  // Chronological order is needed for the sparkline path below; the month-by-month list further
+  // down is shown newest-first since that's what someone checking "am I improving" wants to see
+  // without scrolling.
+  const monthsChronological = Array.from(new Set(trend.map(row => row.month))).sort()
+  const months = [...monthsChronological].reverse()
 
   let verdicts: DietCategoryVerdict[] = []
   const cached = forceRefresh ? null : await getFreshCachedInsights(supabase, user.id, SOURCE)
@@ -144,6 +166,8 @@ export default async function DietTrendPage({
     list.push(row)
     rowsByCategory.set(row.category, list)
   }
+
+  const verdictByCategory = new Map(verdicts.map(v => [v.category, v.verdict]))
 
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '40px', display: 'grid', gap: '36px' }}>
@@ -203,9 +227,17 @@ export default async function DietTrendPage({
         <div style={{ display: 'grid', gap: '20px' }}>
           {visibleCategories.map(category => {
             const rows = rowsByCategory.get(category) ?? []
+            const sparklineValues = monthsChronological.map(
+              month => rows.find(r => r.month === month)?.shareOfTotal ?? 0,
+            )
+            const verdict = verdictByCategory.get(category)
+            const sparklineColor = verdict ? VERDICT_COLOR[verdict] : 'var(--bronze)'
             return (
               <div key={category}>
-                <div style={{ fontSize: '12px', color: 'var(--carbon)', marginBottom: '8px' }}>{category}</div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <div style={{ fontSize: '12px', color: 'var(--carbon)' }}>{category}</div>
+                  <Sparkline values={sparklineValues} color={sparklineColor} />
+                </div>
                 <div style={{ display: 'grid', gap: '6px' }}>
                   {months.map(month => {
                     const row = rows.find(r => r.month === month)

@@ -9,9 +9,8 @@ import {
   getMonthlySavingsRate,
   getMonthlyVatSplit,
   getTopPurchasedItems,
-  type ReceiptAnalysisRow,
-  type ReceiptItemAnalysisRow,
 } from '@/lib/receipts/analysis'
+import { fetchAllReceipts, fetchAllReceiptItems } from '@/lib/receipts/fetchAll'
 import { receiptInsights, type SavingTip } from '@/lib/ai/insights'
 import { getFreshCachedInsights, writeInsightsCache } from '@/lib/receipts/insightsCache'
 
@@ -74,20 +73,10 @@ export default async function ReceiptInsightsPage({
     tips = Array.isArray(cached.top_saving_tips) ? (cached.top_saving_tips as SavingTip[]) : []
     generatedAt = cached.generated_at
   } else {
-    const [{ data: receiptRows }, { data: itemRows }] = await Promise.all([
-      supabase
-        .from('receipts')
-        .select('receipt_id, date, chain, total_amount, currency')
-        .eq('user_id', user.id)
-        .order('date', { ascending: true }),
-      supabase
-        .from('receipt_items')
-        .select('receipt_id, name, quantity, unit, total_price, bonus_percent, vat_percent, savings_amount')
-        .eq('user_id', user.id),
+    const [receipts, items] = await Promise.all([
+      fetchAllReceipts(supabase, user.id),
+      fetchAllReceiptItems(supabase, user.id),
     ])
-
-    const receipts = (receiptRows || []) as ReceiptAnalysisRow[]
-    const items = (itemRows || []) as ReceiptItemAnalysisRow[]
 
     if (receipts.length > 0) {
       const currency = getCurrency(receipts)
