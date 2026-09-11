@@ -1,3 +1,5 @@
+import { DIET_CATEGORIES, isDietCategory, type DietCategory } from './dietCategories'
+
 export type ReceiptAnalysisRow = {
   receipt_id: string
   date: string
@@ -15,6 +17,7 @@ export type ReceiptItemAnalysisRow = {
   bonus_percent: number | string
   vat_percent: number | string
   savings_amount: number | string
+  diet_category?: string | null
 }
 
 export type MonthlyChainSpend = {
@@ -309,6 +312,72 @@ export function getItemPriceTrends(
     const bLatest = b.monthly[b.monthly.length - 1]?.avgUnitPrice ?? 0
     return bLatest - aLatest
   })
+}
+
+export type MonthlyDietCategoryShare = {
+  month: string
+  category: DietCategory
+  spend: number
+  shareOfTotal: number
+  // Percentage-point change vs. the prior month in the dataset (e.g. +0.02 = up 2pp).
+  // null when there is no prior month to compare against (first month in range).
+  shareDeltaVsPreviousMonth: number | null
+}
+
+/**
+ * % of spend per diet category per month, plus month-over-month share deltas.
+ * `shareOfTotal` is each category's share of that month's *total* item spend (across all
+ * categories, including 'Other'), so shares for a given month sum to 1 (barring rounding).
+ */
+export function getMonthlyDietCategoryTrend(
+  receipts: ReceiptAnalysisRow[],
+  items: ReceiptItemAnalysisRow[],
+): MonthlyDietCategoryShare[] {
+  const receiptMonths = createReceiptMonthMap(receipts)
+  const monthlyTotals = new Map<string, number>()
+  const monthlyCategorySpend = new Map<string, Map<DietCategory, number>>()
+
+  for (const item of items) {
+    const month = receiptMonths.get(item.receipt_id)
+    if (!month) continue
+
+    const category: DietCategory = isDietCategory(item.diet_category) ? item.diet_category : 'Other'
+    const spend = spendValue(item.total_price)
+
+    monthlyTotals.set(month, (monthlyTotals.get(month) ?? 0) + spend)
+
+    const categoryMap = monthlyCategorySpend.get(month) ?? new Map<DietCategory, number>()
+    categoryMap.set(category, (categoryMap.get(category) ?? 0) + spend)
+    monthlyCategorySpend.set(month, categoryMap)
+  }
+
+  const months = Array.from(monthlyTotals.keys()).sort()
+
+  // Previous-month share per category, tracked while walking months in order so the delta is a
+  // simple lookup rather than a second pass.
+  const previousShare = new Map<DietCategory, number>()
+  const rows: MonthlyDietCategoryShare[] = []
+
+  months.forEach((month, monthIndex) => {
+    const total = monthlyTotals.get(month) ?? 0
+    const categoryMap = monthlyCategorySpend.get(month) ?? new Map<DietCategory, number>()
+
+    for (const category of DIET_CATEGORIES) {
+      const spend = categoryMap.get(category) ?? 0
+      if (spend === 0 && !previousShare.has(category)) continue
+
+      const shareOfTotal = total > 0 ? spend / total : 0
+      const hasPrevious = monthIndex > 0
+      const shareDeltaVsPreviousMonth = hasPrevious
+        ? shareOfTotal - (previousShare.get(category) ?? 0)
+        : null
+
+      rows.push({ month, category, spend, shareOfTotal, shareDeltaVsPreviousMonth })
+      previousShare.set(category, shareOfTotal)
+    }
+  })
+
+  return rows
 }
 
 export function getTopPurchasedItems(items: ReceiptItemAnalysisRow[]): TopPurchasedItem[] {

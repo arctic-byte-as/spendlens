@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { parseReceiptsImportPayload } from './payload'
+import { classifyDietCategory } from '@/lib/receipts/dietCategories'
 
 export type ImportReceiptsSupabaseClient = SupabaseClient
 
@@ -29,6 +30,7 @@ type ReceiptItemInsertRow = {
   vat_percent: number
   is_unknown: boolean
   savings_amount: number
+  diet_category: string
 }
 
 const RECEIPT_BATCH_SIZE = 50
@@ -89,6 +91,7 @@ export async function importReceipts(
         vat_percent: item.vatPercent,
         is_unknown: item.isUnknownProduct,
         savings_amount: item.savingsAmount,
+        diet_category: classifyDietCategory(item.name),
       })
     }
   }

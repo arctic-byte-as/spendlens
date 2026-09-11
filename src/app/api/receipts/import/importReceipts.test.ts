@@ -11,7 +11,7 @@ const VALID_RECEIPT = {
   items: [
     {
       id: 'line-1',
-      name: 'Milk',
+      name: 'Lettmelk 1,75L',
       quantity: 2,
       unit: 'EA',
       totalPrice: 49.5,
@@ -87,7 +87,12 @@ describe('importReceipts', () => {
 
     const itemUpsert = upsertCalls.find(call => call.table === 'receipt_items')
     expect(itemUpsert?.rows).toEqual([
-      expect.objectContaining({ user_id: 'user-1', receipt_id: 'batch-1', item_guid: 'line-1' }),
+      expect.objectContaining({
+        user_id: 'user-1',
+        receipt_id: 'batch-1',
+        item_guid: 'line-1',
+        diet_category: 'Dairy - Milk',
+      }),
     ])
   })
 

@@ -10,9 +10,8 @@ import {
   getMonthlySavingsRate,
   getMonthlyVatSplit,
   getTopPurchasedItems,
-  type ReceiptAnalysisRow,
-  type ReceiptItemAnalysisRow,
 } from '@/lib/receipts/analysis'
+import { fetchAllReceipts, fetchAllReceiptItems } from '@/lib/receipts/fetchAll'
 
 type SearchParams = Record<string, string | string[] | undefined>
 
@@ -103,20 +102,11 @@ export default async function ReceiptAnalysisPage({
     redirect('/dashboard')
   }
 
-  const [{ data: receiptRows }, { data: itemRows }] = await Promise.all([
-    supabase
-      .from('receipts')
-      .select('receipt_id, date, chain, total_amount, currency')
-      .eq('user_id', user.id)
-      .order('date', { ascending: true }),
-    supabase
-      .from('receipt_items')
-      .select('receipt_id, name, quantity, unit, total_price, bonus_percent, vat_percent, savings_amount')
-      .eq('user_id', user.id),
+  const [receipts, items] = await Promise.all([
+    fetchAllReceipts(supabase, user.id),
+    fetchAllReceiptItems(supabase, user.id),
   ])
 
-  const receipts = (receiptRows || []) as ReceiptAnalysisRow[]
-  const items = (itemRows || []) as ReceiptItemAnalysisRow[]
   const currency = getCurrency(receipts)
 
   const chainMonthly = getMonthlyChainSpend(receipts)
@@ -178,9 +168,17 @@ export default async function ReceiptAnalysisPage({
     <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '40px', display: 'grid', gap: '42px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={panelTitle}>Receipt Analysis</div>
-        <Link href="/dashboard/receipts/import" style={actionButtonStyle}>
-          + IMPORT RECEIPTS
-        </Link>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <Link href="/dashboard/receipts/diet" style={actionButtonStyle}>
+            DIET TREND
+          </Link>
+          <Link href="/dashboard/receipts/insights" style={actionButtonStyle}>
+            SAVINGS TIPS
+          </Link>
+          <Link href="/dashboard/receipts/import" style={actionButtonStyle}>
+            + IMPORT RECEIPTS
+          </Link>
+        </div>
       </div>
 
       <section>
