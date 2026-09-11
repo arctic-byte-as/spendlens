@@ -52,6 +52,7 @@ export default async function DashboardPage() {
       .from('insights')
       .select('top_saving_tips')
       .eq('user_id', user.id)
+      .not('upload_id', 'is', null)
       .order('generated_at', { ascending: false })
       .limit(1),
     supabase

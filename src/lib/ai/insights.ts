@@ -62,7 +62,7 @@ No other text, no markdown. Just the JSON array.`
   })
 
   const content = message.content[0]
-  if (content.type !== 'text') return []
+  if (content?.type !== 'text') return []
 
   try {
     const jsonMatch = content.text.match(/\[[\s\S]*\]/)
@@ -133,7 +133,7 @@ No other text, no markdown. Just the JSON array.`
   })
 
   const content = message.content[0]
-  if (content.type !== 'text') return []
+  if (content?.type !== 'text') return []
 
   try {
     const jsonMatch = content.text.match(/\[[\s\S]*\]/)

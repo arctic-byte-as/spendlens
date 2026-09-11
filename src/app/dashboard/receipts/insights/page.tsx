@@ -13,28 +13,10 @@ import {
 import { fetchAllReceipts, fetchAllReceiptItems } from '@/lib/receipts/fetchAll'
 import { receiptInsights, type SavingTip } from '@/lib/ai/insights'
 import { getFreshCachedInsights, writeInsightsCache } from '@/lib/receipts/insightsCache'
+import { panelTitle, actionButtonStyle } from '../shared'
 
 const SOURCE = 'receipt_analysis'
 const TOP_ITEMS_FOR_AI = 20
-
-const panelTitle: React.CSSProperties = {
-  fontFamily: 'Orbitron, sans-serif',
-  fontSize: '9px',
-  fontWeight: 700,
-  letterSpacing: '0.3em',
-  color: 'var(--muted)',
-  textTransform: 'uppercase',
-}
-
-const actionButtonStyle: React.CSSProperties = {
-  fontFamily: 'Orbitron, sans-serif',
-  fontSize: '9px',
-  letterSpacing: '0.2em',
-  padding: '10px 24px',
-  background: 'var(--prancing-horse)',
-  color: 'white',
-  textDecoration: 'none',
-}
 
 function formatCurrency(amount: number, currency: string): string {
   return `${Math.round(amount).toLocaleString('nb-NO')} ${currency}`
@@ -66,12 +48,15 @@ export default async function ReceiptInsightsPage({
 
   let tips: SavingTip[] = []
   let generatedAt: string | null = null
+  let currency = 'NOK'
 
   const cached = forceRefresh ? null : await getFreshCachedInsights(supabase, user.id, SOURCE)
 
   if (cached) {
     tips = Array.isArray(cached.top_saving_tips) ? (cached.top_saving_tips as SavingTip[]) : []
     generatedAt = cached.generated_at
+    const cachedCurrency = cached.summary_json?.currency
+    if (typeof cachedCurrency === 'string' && cachedCurrency) currency = cachedCurrency
   } else {
     const [receipts, items] = await Promise.all([
       fetchAllReceipts(supabase, user.id),
@@ -79,7 +64,7 @@ export default async function ReceiptInsightsPage({
     ])
 
     if (receipts.length > 0) {
-      const currency = getCurrency(receipts)
+      currency = getCurrency(receipts)
       const healthMonthly = getMonthlyHealthRatio(receipts, items)
       const vatMonthly = getMonthlyVatSplit(receipts, items)
       const savingsMonthly = getMonthlySavingsRate(receipts, items)
@@ -111,7 +96,7 @@ export default async function ReceiptInsightsPage({
       })
 
       generatedAt = new Date().toISOString()
-      await writeInsightsCache(supabase, user.id, SOURCE, { top_saving_tips: tips })
+      await writeInsightsCache(supabase, user.id, SOURCE, { summary_json: { currency }, top_saving_tips: tips })
     }
   }
 
@@ -148,7 +133,7 @@ export default async function ReceiptInsightsPage({
                   {tip.category.toUpperCase()}
                 </div>
                 <div style={{ fontFamily: 'Orbitron, sans-serif', fontSize: '13px', color: 'var(--positive)' }}>
-                  {formatCurrency(tip.saving_amount, 'NOK')}/mo
+                  {formatCurrency(tip.saving_amount, currency)}/mo
                 </div>
               </div>
               <div style={{ fontSize: '13px', color: 'var(--carbon)' }}>{tip.title}</div>

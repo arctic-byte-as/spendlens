@@ -360,18 +360,22 @@ are implemented, tested (`analysis.test.ts`), and verified against their accepta
 
 ---
 
-### Epic 7-E: Claude Receipt & Diet Insights
-*Status: not started — zero code exists for any story in this epic (`receiptInsights()` and
-`dietTrendInsights()` are not implemented anywhere in `src/lib/ai/`; no `diet_category` column exists yet).*
-*Note: `docs/family-diet-analysis.md` / `docs/diet-analysis.html` (merged via PR #12, 2026-09-10) are a
+### Epic 7-E: Claude Receipt & Diet Insights ✅ Done
+*Implemented 2026-09-11. `receiptInsights()` and `dietTrendInsights()` live in `src/lib/ai/insights.ts`,
+following the existing `generateInsights()` client/model/caching pattern. Diet-category classification
+(`src/lib/receipts/dietCategories.ts`), fixed NNR-style targets + deterministic verdicts
+(`src/lib/receipts/dietTargets.ts`), and monthly trend aggregation (`getMonthlyDietCategoryTrend()` in
+`analysis.ts`) are all implemented and unit-tested, with the `insights.top_saving_tips` cache
+(`insightsCache.ts`, 24h TTL, source-tagged) and flag-gated `/dashboard/receipts/insights` and
+`/dashboard/receipts/diet` pages. `receipt_items.diet_category` added via migration + import-time
+classification + one-off backfill script (`scripts/backfill-diet-categories.ts`).*
+*Note: `docs/family-diet-analysis.md` / `docs/diet-analysis.html` (merged via PR #12, 2026-09-10) remain a
 one-time manually-generated report — not produced by any code in this epic, and not automatically updated
 as new receipts are imported. They establish the category taxonomy (Vegetables, Poultry, Red Meat, Processed
 Meat, Candy & Sweets, Fish & Seafood, Legumes & Nuts, Dairy sub-types, Alcohol, etc.) and the
-"Cut Out / Moderate / Eat More" framing that the stories below should reuse, so this epic's AI output stays
-consistent with that report's language rather than inventing a new taxonomy. The goal of this epic is to make
-that kind of analysis live and trend-aware instead of a manual one-off.*
+"Cut Out / Moderate / Eat More" framing that this epic's code reuses rather than inventing a new taxonomy.*
 
-- 🟠 **As a user, I want Claude to generate receipt-level savings tips** based on my actual basket contents.
+- ✅ 🟠 **As a user, I want Claude to generate receipt-level savings tips** based on my actual basket contents.
   - New `receiptInsights()` function in `src/lib/ai/insights.ts`
   - Input: pre-aggregated summary (health ratio, VAT split, top 20 items, chain breakdown, savings rate) — not raw JSON
   - System prompt scoped to NorgesGruppen chains and Norwegian household context
@@ -380,7 +384,7 @@ that kind of analysis live and trend-aware instead of a manual one-off.*
   - **AC:** User with 10+ receipts sees at least 3 tips that reference specific product names or chains from their data.
   - **[TECH DEP]:** Epic 7-D analysis queries must be available to feed the aggregated input.
 
-- 🟠 **As a user, I want item purchases classified into diet/nutrition categories** (Vegetables, Poultry,
+- ✅ 🟠 **As a user, I want item purchases classified into diet/nutrition categories** (Vegetables, Poultry,
   Red Meat, Processed Meat, Candy & Sweets, Fish & Seafood, Legumes & Nuts, Dairy sub-types, Alcohol, etc. —
   the taxonomy used in `docs/family-diet-analysis.md`) **so that diet-composition trends can be computed
   without re-deriving the category list by hand each time.**
@@ -392,7 +396,7 @@ that kind of analysis live and trend-aware instead of a manual one-off.*
     without an explicit re-classify action.
   - **[TECH DEP]:** Epic 7-B schema; new migration for the `diet_category` column.
 
-- 🟠 **As a user, I want to see how my diet-category mix has changed month over month** (e.g. is candy share
+- ✅ 🟠 **As a user, I want to see how my diet-category mix has changed month over month** (e.g. is candy share
   rising or falling, is fish share moving toward the NNR target) **so that I can tell whether changes I'm
   making are actually showing up in what I buy, not just intend.**
   - `getMonthlyDietCategoryTrend()` in `src/lib/receipts/analysis.ts` — % of spend per diet category per month
@@ -403,7 +407,7 @@ that kind of analysis live and trend-aware instead of a manual one-off.*
     and matches a manual aggregation over the same data.
   - **[TECH DEP]:** diet-category classification story above.
 
-- 🟠 **As a user, I want an AI-generated narrative summary of my diet trend over time** ("candy spend down 40%
+- ✅ 🟠 **As a user, I want an AI-generated narrative summary of my diet trend over time** ("candy spend down 40%
   since March, fish still below target, keep going") **so that I get a plain-language read on progress, not
   just charts.**
   - New `dietTrendInsights()` function in `src/lib/ai/insights.ts` (or a new `src/lib/ai/dietInsights.ts`)
@@ -426,8 +430,8 @@ that kind of analysis live and trend-aware instead of a manual one-off.*
 - ✅ 🟠 **Unit test for import idempotency** — mock Supabase upsert, verify `ON CONFLICT` behaviour. `src/app/api/receipts/import/importReceipts.test.ts`
 - ✅ 🟡 **Unit tests for health ratio and VAT split SQL helpers** — seed known data, assert output matches expected ratios. `src/lib/receipts/analysis.test.ts`
 - 🟡 **E2E smoke test** — import 10-receipt slice of real receipt data, verify row counts and health ratio endpoint returns valid JSON. *Not confirmed — worth a quick check before assuming this is covered; existing tests are unit-level against mocks, not a true end-to-end import→query smoke test.*
-- 🟠 **Unit tests for diet-category classification** (new, for Epic 7-E) — fixed taxonomy mappings return stable categories for known item names; ambiguous names fall back deterministically rather than silently miscategorising
-- 🟡 **Unit tests for `getMonthlyDietCategoryTrend()`** (new, for Epic 7-E) — seed known multi-month data, assert per-category % and month-over-month delta match expected values
+- ✅ 🟠 **Unit tests for diet-category classification** (Epic 7-E) — fixed taxonomy mappings return stable categories for known item names; ambiguous names fall back deterministically. `src/lib/receipts/dietCategories.test.ts`
+- ✅ 🟡 **Unit tests for `getMonthlyDietCategoryTrend()`** (Epic 7-E) — seed known multi-month data, assert per-category % and month-over-month delta match expected values. `src/lib/receipts/analysis.test.ts`
 
 ---
 
@@ -482,19 +486,27 @@ that kind of analysis live and trend-aware instead of a manual one-off.*
 
 ---
 
-### Epic 8-D: AI & Prompt-Injection Hardening
-*Status: not started. Verified 2026-09-10 — no delimiter-wrapping, PII stripping, or typed-intent layer exists in
-`src/lib/ai/`; `categorise.ts` and `insights.ts` pass raw transaction text straight into the prompt. Zero test
-files exist under `src/lib/ai/` (no coverage for malformed model output or injection-shaped input). This is a
-real, unaddressed gap — user-controlled transaction descriptions currently flow unguarded into Claude prompts.*
+### Epic 8-D: AI & Prompt-Injection Hardening ✅ Done
+*Implemented 2026-09-11. `src/lib/ai/promptSafety.ts` — `wrapUntrusted()` wraps user-controlled text in
+unambiguous delimiters and strips any attempt to forge those delimiters from inside the value itself, plus
+`UNTRUSTED_DATA_INSTRUCTIONS` system-prompt boilerplate. Applied at every AI call site: `categorise.ts` wraps
+transaction descriptions and reconciles model output against requested ids (fabricated ids ignored, omitted
+ids become an explicit failed result) with shape validation before trusting a result; `insights.ts` wraps
+user-defined category names and receipt item/chain names the same way. `dietTrendInsights()` sends only fixed
+category-enum/target data, so no wrapping was needed there. Full test coverage added for `src/lib/ai/`
+(previously zero test files): malformed/non-array model responses, id fabrication/omission, delimiter-wrapping
+verification, and adversarial prompt-injection-shaped input for every AI entry point.*
+*Scope note: "receipt/chat analysis must use typed analysis intents rather than arbitrary SQL" doesn't apply —
+there is no free-form chat or NL-to-SQL feature anywhere in the codebase.*
 
-- 🟠 **As the app, I want AI calls constrained to safe inputs and typed outputs** so that user-controlled transaction, receipt, and chat text cannot steer system behaviour.
+- ✅ 🟠 **As the app, I want AI calls constrained to safe inputs and typed outputs** so that user-controlled transaction, receipt, and chat text cannot steer system behaviour.
   - Wrap user-controlled data in clear delimiters before model calls
   - Prefer aggregate summaries over raw rows
   - Strip obvious PII before prompts
   - Receipt/chat analysis must use typed analysis intents rather than arbitrary SQL
   - Add tests for malformed model responses and prompt-injection-like user text
   - **AC:** AI endpoints reject arbitrary tool/query requests and continue to return valid structured output or a safe error.
+  - **Evidence:** `src/lib/ai/promptSafety.ts` + `promptSafety.test.ts`, `categorise.ts` + `categorise.test.ts`, `insights.ts` + `insights.test.ts`.
 
 ---
 
