@@ -13,14 +13,11 @@ import {
 import { fetchAllReceipts, fetchAllReceiptItems } from '@/lib/receipts/fetchAll'
 import { receiptInsights, type SavingTip } from '@/lib/ai/insights'
 import { getFreshCachedInsights, writeInsightsCache } from '@/lib/receipts/insightsCache'
+import { formatCurrency } from '@/lib/transactions/table'
 import { panelTitle, actionButtonStyle } from '../shared'
 
 const SOURCE = 'receipt_analysis'
 const TOP_ITEMS_FOR_AI = 20
-
-function formatCurrency(amount: number, currency: string): string {
-  return `${Math.round(amount).toLocaleString('nb-NO')} ${currency}`
-}
 
 export default async function ReceiptInsightsPage({
   searchParams,
@@ -96,7 +93,12 @@ export default async function ReceiptInsightsPage({
       })
 
       generatedAt = new Date().toISOString()
-      await writeInsightsCache(supabase, user.id, SOURCE, { summary_json: { currency }, top_saving_tips: tips })
+      // Only cache a non-empty result — an empty array here means the model response was
+      // unparseable (see extractJsonArray()), not a genuine "no tips" verdict, so don't let a
+      // transient AI hiccup get cached as a real result for the full TTL.
+      if (tips.length > 0) {
+        await writeInsightsCache(supabase, user.id, SOURCE, { summary_json: { currency }, top_saving_tips: tips })
+      }
     }
   }
 

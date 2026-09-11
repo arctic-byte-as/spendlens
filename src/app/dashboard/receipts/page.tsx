@@ -12,6 +12,7 @@ import {
   getTopPurchasedItems,
 } from '@/lib/receipts/analysis'
 import { fetchAllReceipts, fetchAllReceiptItems } from '@/lib/receipts/fetchAll'
+import { formatCurrency } from '@/lib/transactions/table'
 import { panelTitle, actionButtonStyle, monthLabel } from './shared'
 
 type SearchParams = Record<string, string | string[] | undefined>
@@ -28,10 +29,6 @@ const GOOD_SAVINGS_RATE_THRESHOLD = 0.15
 function getSingle(value: string | string[] | undefined): string | undefined {
   if (Array.isArray(value)) return value[0]
   return value
-}
-
-function formatCurrency(amount: number, currency: string): string {
-  return `${Math.round(amount).toLocaleString('nb-NO')} ${currency}`
 }
 
 function formatPct(value: number): string {

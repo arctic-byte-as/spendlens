@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createServerClient } from '@/lib/supabase/server'
-import { formatSignedAmount } from '@/lib/transactions/table'
+import { formatSignedAmount, formatCurrency } from '@/lib/transactions/table'
 import { getLatestUploadSavingTips } from '@/lib/insights/uploadInsights'
 import UpgradeButton from '@/components/UpgradeButton'
 
@@ -16,10 +16,6 @@ type TransactionRow = {
   category_source: string | null
   amount: number | string
   currency: string | null
-}
-
-function formatCurrency(amount: number, currency = 'NOK') {
-  return `${Math.round(amount).toLocaleString('nb-NO')} ${currency}`
 }
 
 export default async function DashboardPage() {

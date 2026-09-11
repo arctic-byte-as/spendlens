@@ -62,6 +62,10 @@ export function formatSignedAmount(amount: number, currency: string, locale = 'n
   })} ${currency}`
 }
 
+export function formatCurrency(amount: number, currency = 'NOK', locale = 'nb-NO') {
+  return `${Math.round(amount).toLocaleString(locale)} ${currency}`
+}
+
 export function filterTransactions(
   rows: TransactionListItem[],
   search: string,

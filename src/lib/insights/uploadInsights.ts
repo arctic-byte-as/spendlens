@@ -19,7 +19,7 @@ export async function getLatestUploadSavingTips(
   supabase: SupabaseClient,
   userId: string,
 ): Promise<UploadSavingTip[]> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('insights')
     .select('top_saving_tips')
     .eq('user_id', userId)
@@ -27,6 +27,11 @@ export async function getLatestUploadSavingTips(
     .order('generated_at', { ascending: false })
     .limit(1)
     .maybeSingle()
+
+  if (error) {
+    console.error('Failed to load upload saving tips:', error)
+    return []
+  }
 
   const tips = data?.top_saving_tips
   return Array.isArray(tips) ? (tips as UploadSavingTip[]) : []
