@@ -49,6 +49,14 @@ const MAX_VALUE_LENGTH = 200
 const SENSITIVE_KEY_PATTERN =
   /token|secret|password|passwd|auth|cookie|session|card|iban|account|amount|balance|total|price|ssn|ccn|payload|prompt|body|content|csv|receipt|email|phone|address/i
 
+// Truncates by Unicode code point rather than UTF-16 code unit, so a surrogate pair (e.g. an
+// emoji) straddling the cutoff is never split into an unpaired half.
+function truncate(value: string, maxLength: number): string {
+  const chars = Array.from(value)
+  if (chars.length <= maxLength) return value
+  return `${chars.slice(0, maxLength).join('')}…[truncated]`
+}
+
 function scrubMetadata(
   metadata: SecurityLogEvent['metadata']
 ): Record<string, string | number | boolean | null> | undefined {
@@ -63,25 +71,23 @@ function scrubMetadata(
       continue
     }
 
-    if (typeof value === 'string' && value.length > MAX_VALUE_LENGTH) {
-      scrubbed[key] = `${value.slice(0, MAX_VALUE_LENGTH)}…[truncated]`
-      continue
-    }
-
-    scrubbed[key] = value
+    scrubbed[key] = typeof value === 'string' ? truncate(value, MAX_VALUE_LENGTH) : value
   }
 
   return scrubbed
 }
 
 export function logSecurityEvent(event: SecurityLogEvent): SecurityLogRecord {
+  // actor/route/reason come straight from request data (e.g. X-Forwarded-For) at some call
+  // sites, so they get the same length cap as metadata even though they're not deny-list scrubbed
+  // — an attacker-controlled field shouldn't get a free pass just because it isn't in `metadata`.
   const record: SecurityLogRecord = {
     timestamp: new Date().toISOString(),
     level: 'security',
     eventType: event.eventType,
-    route: event.route,
-    actor: event.actor,
-    ...(event.reason ? { reason: event.reason } : {}),
+    route: truncate(event.route, MAX_VALUE_LENGTH),
+    actor: truncate(event.actor, MAX_VALUE_LENGTH),
+    ...(event.reason ? { reason: truncate(event.reason, MAX_VALUE_LENGTH) } : {}),
     ...(event.metadata ? { metadata: scrubMetadata(event.metadata) } : {}),
   }
 

@@ -6,8 +6,8 @@ import { isCanonicalCategory, isValidCategoryName } from '@/lib/transactions/cat
  * GET /api/categories
  * Returns the user's custom categories as a sorted string array.
  */
-export async function GET() {
-  const auth = await requireAuthenticatedRouteContext()
+export async function GET(request: NextRequest) {
+  const auth = await requireAuthenticatedRouteContext(request)
   if (auth instanceof NextResponse) return auth
   const { supabase, user } = auth
 

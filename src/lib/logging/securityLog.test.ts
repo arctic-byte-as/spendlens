@@ -116,6 +116,38 @@ describe('logSecurityEvent', () => {
     expect(value).toContain('…[truncated]')
   })
 
+  it('truncates an oversized actor field the same way metadata values are truncated', () => {
+    // actor can come straight from a client-controlled header (X-Forwarded-For), so it must not
+    // get a free pass on length just because it isn't inside `metadata`.
+    const record = logSecurityEvent({
+      eventType: 'auth_failure',
+      route: '/api/upload',
+      actor: 'y'.repeat(500),
+      reason: 'z'.repeat(500),
+    })
+
+    expect(record.actor.length).toBeLessThan(500)
+    expect(record.actor).toContain('…[truncated]')
+    expect(record.reason!.length).toBeLessThan(500)
+    expect(record.reason).toContain('…[truncated]')
+  })
+
+  it('truncates by code point so a surrogate pair straddling the cutoff is never split', () => {
+    const emoji = '😀' // U+1F600, a surrogate pair in UTF-16
+    const longValue = 'a'.repeat(199) + emoji + 'b'.repeat(50)
+    const record = logSecurityEvent({
+      eventType: 'ai_validation_failure',
+      route: '/lib/ai/categorise',
+      actor: 'unknown',
+      metadata: { rawResponsePreview: longValue },
+    })
+
+    const value = record.metadata!.rawResponsePreview as string
+    // eslint-disable-next-line no-misleading-character-class
+    expect(value).not.toMatch(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/)
+    expect(value).toContain(emoji)
+  })
+
   it('drops undefined metadata values instead of serialising them as null', () => {
     const record = logSecurityEvent({
       eventType: 'auth_failure',
