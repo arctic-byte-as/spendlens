@@ -2,13 +2,21 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getRequiredEnv, getStripeClient } from '@/lib/billing/stripe'
 import { handleStripeWebhookEvent } from '@/lib/billing/webhook'
+import { logSecurityEvent } from '@/lib/logging/securityLog'
 
 const PG_UNIQUE_VIOLATION = '23505'
+const ROUTE = '/api/webhooks/stripe'
 
 export async function POST(request: Request) {
   const stripe = getStripeClient()
   const signature = request.headers.get('stripe-signature')
   if (!signature) {
+    logSecurityEvent({
+      eventType: 'webhook_signature_invalid',
+      route: ROUTE,
+      actor: 'unknown',
+      reason: 'missing_signature_header',
+    })
     return NextResponse.json({ error: 'Missing signature' }, { status: 400 })
   }
 
@@ -20,6 +28,12 @@ export async function POST(request: Request) {
     event = stripe.webhooks.constructEvent(payload, signature, secret)
   } catch (error) {
     console.error('Stripe webhook signature verification failed:', error)
+    logSecurityEvent({
+      eventType: 'webhook_signature_invalid',
+      route: ROUTE,
+      actor: 'unknown',
+      reason: 'signature_verification_failed',
+    })
     return NextResponse.json({ error: 'Invalid webhook' }, { status: 400 })
   }
 

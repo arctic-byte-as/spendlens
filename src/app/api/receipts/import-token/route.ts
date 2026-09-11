@@ -16,8 +16,8 @@ function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex')
 }
 
-async function requireReceiptAnalysisAccess() {
-  const auth = await requireAuthenticatedRouteContext()
+async function requireReceiptAnalysisAccess(request: Request) {
+  const auth = await requireAuthenticatedRouteContext(request)
   if (auth instanceof NextResponse) return auth
   const { supabase, user } = auth
 
@@ -39,8 +39,8 @@ async function requireReceiptAnalysisAccess() {
   return { userId: user.id }
 }
 
-export async function POST() {
-  const access = await requireReceiptAnalysisAccess()
+export async function POST(request: Request) {
+  const access = await requireReceiptAnalysisAccess(request)
   if (access instanceof NextResponse) return access
   const { userId } = access
 
@@ -80,8 +80,8 @@ export async function POST() {
   })
 }
 
-export async function DELETE() {
-  const access = await requireReceiptAnalysisAccess()
+export async function DELETE(request: Request) {
+  const access = await requireReceiptAnalysisAccess(request)
   if (access instanceof NextResponse) return access
   const { userId } = access
 
@@ -101,8 +101,8 @@ export async function DELETE() {
   return NextResponse.json({ revoked: true })
 }
 
-export async function GET() {
-  const access = await requireReceiptAnalysisAccess()
+export async function GET(request: Request) {
+  const access = await requireReceiptAnalysisAccess(request)
   if (access instanceof NextResponse) return access
   const { userId } = access
 

@@ -3,6 +3,7 @@ import { ANTHROPIC_MODEL, cachedSystemPrompt } from './model'
 import { computeDietCategoryVerdicts, DIET_CATEGORY_TARGETS, type DietCategoryTarget, type DietVerdict } from '@/lib/receipts/dietTargets'
 import type { DietCategory } from '@/lib/receipts/dietCategories'
 import type { MonthlyDietCategoryShare } from '@/lib/receipts/analysis'
+import { logSecurityEvent } from '@/lib/logging/securityLog'
 
 export interface SavingTip {
   category: string
@@ -61,6 +62,12 @@ No other text, no markdown. Just the JSON array.`
     return tips.sort((a, b) => b.saving_amount - a.saving_amount).slice(0, 5)
   } catch {
     console.error('Failed to parse insights response')
+    logSecurityEvent({
+      eventType: 'ai_validation_failure',
+      route: 'lib/ai/insights',
+      actor: 'unknown',
+      reason: 'insights_parse_failed',
+    })
     return []
   }
 }
@@ -129,6 +136,12 @@ No other text, no markdown. Just the JSON array.`
     return tips.sort((a, b) => b.saving_amount - a.saving_amount).slice(0, 5)
   } catch {
     console.error('Failed to parse receipt insights response')
+    logSecurityEvent({
+      eventType: 'ai_validation_failure',
+      route: 'lib/ai/insights',
+      actor: 'unknown',
+      reason: 'receipt_insights_parse_failed',
+    })
     return []
   }
 }
@@ -211,6 +224,12 @@ No other text, no markdown. Just the JSON array, one element per category given,
       }
     } catch {
       console.error('Failed to parse diet trend insights response')
+      logSecurityEvent({
+        eventType: 'ai_validation_failure',
+        route: 'lib/ai/insights',
+        actor: 'unknown',
+        reason: 'diet_trend_insights_parse_failed',
+      })
     }
   }
 

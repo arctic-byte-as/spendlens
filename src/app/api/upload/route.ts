@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuthenticatedRouteContext } from '@/lib/api/guard'
+import { logSecurityEvent } from '@/lib/logging/securityLog'
+
+const ROUTE = '/api/upload'
 
 export async function POST(request: NextRequest) {
-  const auth = await requireAuthenticatedRouteContext()
+  const auth = await requireAuthenticatedRouteContext(request)
   if (auth instanceof NextResponse) return auth
   const { supabase, user } = auth
 
@@ -14,11 +17,23 @@ export async function POST(request: NextRequest) {
   // Validate file type
   const filename = file.name.toLowerCase()
   if (!filename.endsWith('.csv')) {
+    logSecurityEvent({
+      eventType: 'upload_rejected',
+      route: ROUTE,
+      actor: user.id,
+      reason: 'invalid_file_type',
+    })
     return NextResponse.json({ error: 'Only .csv files are accepted' }, { status: 400 })
   }
 
   // Validate size (10MB max)
   if (file.size > 10 * 1024 * 1024) {
+    logSecurityEvent({
+      eventType: 'upload_rejected',
+      route: ROUTE,
+      actor: user.id,
+      reason: 'file_too_large',
+    })
     return NextResponse.json({ error: 'File exceeds 10 MB limit' }, { status: 413 })
   }
 
