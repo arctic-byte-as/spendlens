@@ -36,19 +36,43 @@ function normaliseCategory(cat: string, customCategories: string[]): string {
   return 'OTHER'
 }
 
+function toBoolean(value: unknown): boolean | undefined {
+  if (typeof value === 'boolean') return value
+  if (value === 'true') return true
+  if (value === 'false') return false
+  return undefined
+}
+
 // Typed-output guard: never trust a model-returned object's shape blindly. An entry that doesn't
 // match this shape is treated the same as a batch failure for that one transaction (see
-// categoriseBatch), not silently coerced or passed through.
-function isValidCategorisationResult(value: unknown): value is CategorisationResult {
-  if (!value || typeof value !== 'object') return false
+// categoriseBatch), not silently coerced or passed through. Only the fields listed here are ever
+// read from the candidate — the caller must build a fresh object from them rather than spreading
+// the model-supplied value, so an extra unlisted field (e.g. an injected "failed": true) can never
+// smuggle itself into the result.
+type ValidatedCategorisationResult = {
+  id: string
+  category: string
+  subcategory: string
+  merchant: string
+  is_recurring: boolean
+}
+
+function validateCategorisationResult(value: unknown): ValidatedCategorisationResult | null {
+  if (!value || typeof value !== 'object') return null
   const r = value as Record<string, unknown>
-  return (
-    typeof r.id === 'string' &&
-    typeof r.category === 'string' &&
-    typeof r.subcategory === 'string' &&
-    typeof r.merchant === 'string' &&
-    typeof r.is_recurring === 'boolean'
-  )
+  const is_recurring = toBoolean(r.is_recurring)
+
+  if (
+    typeof r.id !== 'string' ||
+    typeof r.category !== 'string' ||
+    typeof r.subcategory !== 'string' ||
+    typeof r.merchant !== 'string' ||
+    is_recurring === undefined
+  ) {
+    return null
+  }
+
+  return { id: r.id, category: r.category, subcategory: r.subcategory, merchant: r.merchant, is_recurring }
 }
 
 function failedResult(id: string): CategorisationResult {
@@ -119,13 +143,15 @@ No other text, no markdown, no explanation. Just the JSON array.`
   }
 
   return batch.map(tx => {
-    const candidate = byId.get(tx.id)
-    if (!isValidCategorisationResult(candidate)) return failedResult(tx.id)
+    const validated = validateCategorisationResult(byId.get(tx.id))
+    if (!validated) return failedResult(tx.id)
 
     return {
-      ...candidate,
       id: tx.id,
-      category: normaliseCategory(candidate.category, customCategories),
+      category: normaliseCategory(validated.category, customCategories),
+      subcategory: validated.subcategory,
+      merchant: validated.merchant,
+      is_recurring: validated.is_recurring,
     }
   })
 }

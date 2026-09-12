@@ -113,8 +113,12 @@ export interface ReceiptInsightsInput {
  * Epic 7-E: receipt-level savings tips from a pre-aggregated summary (health ratio, VAT split,
  * top items, chain breakdown, savings rate) — never raw receipt/item rows. Follows the same
  * Anthropic client/model/caching pattern as generateInsights() above.
+ *
+ * Returns `null` specifically when the model's response couldn't be extracted/parsed at all, as
+ * distinct from `[]`, which means the model validly responded with no tips — callers should not
+ * cache a `null` result the same way they'd cache a genuine empty list.
  */
-export async function receiptInsights(input: ReceiptInsightsInput): Promise<SavingTip[]> {
+export async function receiptInsights(input: ReceiptInsightsInput): Promise<SavingTip[] | null> {
   if (input.topItems.length === 0 && input.chainBreakdown.length === 0) return []
 
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -156,7 +160,7 @@ No other text, no markdown. Just the JSON array.`
       actor: 'unknown',
       reason: 'receipt_insights_parse_failed',
     })
-    return []
+    return null
   }
 
   const tips = parsed

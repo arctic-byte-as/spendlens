@@ -117,16 +117,23 @@ describe('receiptInsights', () => {
     expect(tips[0].category).toBe('Candy')
   })
 
-  it('returns [] on unparseable model output rather than throwing', async () => {
+  it('returns null (not []) on unparseable model output, so callers don\'t cache a failure as a real empty result', async () => {
     mockCreate.mockResolvedValue(textResponse('not json at all'))
     const tips = await receiptInsights(baseInput)
-    expect(tips).toEqual([])
+    expect(tips).toBeNull()
   })
 
-  it('returns [] when the model response is not an array', async () => {
+  it('returns null when the model response is not an array', async () => {
     mockCreate.mockResolvedValue(textResponse(JSON.stringify({ oops: 'not an array' })))
     const tips = await receiptInsights(baseInput)
+    expect(tips).toBeNull()
+  })
+
+  it('returns a real (non-null) empty array when the model validly finds no tips', async () => {
+    mockCreate.mockResolvedValue(textResponse(JSON.stringify([])))
+    const tips = await receiptInsights(baseInput)
     expect(tips).toEqual([])
+    expect(tips).not.toBeNull()
   })
 
   it('logs an ai_validation_failure event on unparseable model output', async () => {

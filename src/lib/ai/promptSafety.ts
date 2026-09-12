@@ -10,7 +10,9 @@ const CLOSE_TAG = '<<<END_UNTRUSTED_DATA>>>'
 
 // Matches the literal delimiter tokens so a malicious value can't forge a fake close/open tag to
 // "break out" of its own wrapper and inject text the model would read as being outside the block.
-const DELIMITER_PATTERN = /<<<UNTRUSTED_DATA\s+label="[^"]*">>>|<<<END_UNTRUSTED_DATA>>>/gi
+// Whitespace is tolerated everywhere between fixed tokens (not just where the real tags allow it)
+// so a forged tag can't dodge stripping by adding a stray space the real generator never produces.
+const DELIMITER_PATTERN = /<<<\s*UNTRUSTED_DATA\s+label\s*=\s*"[^"]*"\s*>>>|<<<\s*END_UNTRUSTED_DATA\s*>>>/gi
 
 function stripDelimiterForgery(value: string): string {
   return value.replace(DELIMITER_PATTERN, '')

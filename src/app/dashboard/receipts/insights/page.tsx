@@ -80,7 +80,7 @@ export default async function ReceiptInsightsPage({
         chainBreakdown.set(row.chain, current)
       }
 
-      tips = await receiptInsights({
+      const result = await receiptInsights({
         currency,
         healthRatio: latestHealth?.ratio ?? 0,
         vatSplit: {
@@ -92,11 +92,12 @@ export default async function ReceiptInsightsPage({
         topItems: topItems.map(item => ({ name: item.name, totalSpend: item.totalSpend, totalQty: item.totalQty })),
       })
 
+      tips = result ?? []
       generatedAt = new Date().toISOString()
-      // Only cache a non-empty result — an empty array here means the model response was
-      // unparseable (see extractJsonArray()), not a genuine "no tips" verdict, so don't let a
-      // transient AI hiccup get cached as a real result for the full TTL.
-      if (tips.length > 0) {
+      // `null` means the model response was unparseable (see receiptInsights) — not a genuine "no
+      // tips" verdict — so don't let a transient AI hiccup get cached as a real result for the
+      // full TTL. A real empty array (the model validly found nothing) is still cached.
+      if (result !== null) {
         await writeInsightsCache(supabase, user.id, SOURCE, { summary_json: { currency }, top_saving_tips: tips })
       }
     }
