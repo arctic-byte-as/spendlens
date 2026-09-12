@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
@@ -61,6 +61,10 @@ export default function ReceiptImportWizard() {
   const [errorMsg, setErrorMsg] = useState('')
   const [dragOver, setDragOver] = useState(false)
   const [result, setResult] = useState<ImportResult | null>(null)
+  // Bumped by any new file selection or import attempt so a stale async completion (an import
+  // still in flight when the user picks a different file, or a second import fired after a new
+  // selection) can detect it's no longer current and skip applying its result.
+  const requestId = useRef(0)
 
   const previewRows = useMemo(() => preview?.receipts.slice(0, 5) || [], [preview])
   const summaryCurrency = useMemo(
@@ -69,6 +73,11 @@ export default function ReceiptImportWizard() {
   )
 
   const readFiles = useCallback(async (selectedFiles: File[]) => {
+    // A new file selection always supersedes whatever request (import or a previous readFiles
+    // call) was previously in flight.
+    const thisRequest = ++requestId.current
+    const isCurrent = () => requestId.current === thisRequest
+
     setErrorMsg('')
     setStatus('idle')
     setResult(null)
@@ -92,12 +101,15 @@ export default function ReceiptImportWizard() {
         receipts.push(...extractReceiptsFromJson(parsed))
       }
     } catch (error) {
+      if (!isCurrent()) return
       setFiles(selectedFiles)
       setPreview(null)
       setStatus('error')
       setErrorMsg(error instanceof Error ? `Could not parse JSON: ${error.message}` : 'Could not parse JSON')
       return
     }
+
+    if (!isCurrent()) return
 
     const nextPreview = createReceiptImportPreview(receipts)
     if (nextPreview.receiptCount === 0) {
@@ -120,7 +132,8 @@ export default function ReceiptImportWizard() {
   }, [readFiles])
 
   const handleImport = async () => {
-    if (!preview || status === 'importing') return
+    if (!preview || status === 'importing' || status === 'done') return
+    const thisRequest = ++requestId.current
     setStatus('importing')
     setErrorMsg('')
     setResult(null)
@@ -137,6 +150,10 @@ export default function ReceiptImportWizard() {
         throw new Error(data.error || 'Receipt import failed')
       }
 
+      // A new file selection may have superseded this request while the POST was in flight —
+      // don't clobber the newer preview/status with this stale result.
+      if (requestId.current !== thisRequest) return
+
       setResult({
         imported: data.imported ?? 0,
         skipped: data.skipped ?? 0,
@@ -145,6 +162,7 @@ export default function ReceiptImportWizard() {
       setStatus('done')
       router.refresh()
     } catch (error) {
+      if (requestId.current !== thisRequest) return
       setStatus('error')
       setErrorMsg(error instanceof Error ? error.message : 'Receipt import failed')
     }
@@ -262,28 +280,30 @@ export default function ReceiptImportWizard() {
           </section>
 
           <div style={{ display: 'grid', gap: '14px' }}>
-            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-              <button
-                type="button"
-                onClick={handleImport}
-                disabled={status === 'importing'}
-                style={{
-                  fontFamily: 'Orbitron, sans-serif',
-                  fontSize: '9px',
-                  letterSpacing: '0.2em',
-                  padding: '11px 26px',
-                  background: 'var(--prancing-horse)',
-                  color: 'white',
-                  border: 'none',
-                  cursor: status === 'importing' ? 'wait' : 'pointer',
-                }}
-              >
-                {status === 'importing' ? 'IMPORTING...' : 'IMPORT RECEIPTS'}
-              </button>
-              <div style={{ color: 'var(--muted)', fontSize: '12px' }}>
-                Existing receipts are deduplicated by receipt ID.
+            {status !== 'done' && (
+              <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                <button
+                  type="button"
+                  onClick={handleImport}
+                  disabled={status === 'importing'}
+                  style={{
+                    fontFamily: 'Orbitron, sans-serif',
+                    fontSize: '9px',
+                    letterSpacing: '0.2em',
+                    padding: '11px 26px',
+                    background: 'var(--prancing-horse)',
+                    color: 'white',
+                    border: 'none',
+                    cursor: status === 'importing' ? 'wait' : 'pointer',
+                  }}
+                >
+                  {status === 'importing' ? 'IMPORTING...' : 'IMPORT RECEIPTS'}
+                </button>
+                <div style={{ color: 'var(--muted)', fontSize: '12px' }}>
+                  Existing receipts are deduplicated by receipt ID.
+                </div>
               </div>
-            </div>
+            )}
 
             {status === 'importing' && (
               <div style={{ position: 'relative', height: '4px', background: 'var(--grid-line)', overflow: 'hidden' }}>
