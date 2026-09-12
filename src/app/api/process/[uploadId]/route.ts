@@ -222,9 +222,14 @@ export async function POST(
         throw new Error(`Failed to insert insights: ${insightInsertError.message}`)
       }
     } catch (aiError) {
-      console.error('AI categorisation error:', aiError)
-      captureError(aiError, { route: ROUTE, eventType: 'ai_call_failed', actor: user.id, extra: { uploadId } })
-      // Don't fail the whole process if AI fails
+      // Despite the block's name, nothing genuinely AI-related can throw here:
+      // categoriseTransactionBatches() and generateInsights() both catch their own failures
+      // internally (yielding a failed/OTHER row or an empty tip list respectively) rather than
+      // throwing. Every exception reaching this catch is actually the transaction-category or
+      // insights DB write failing, so it's tagged as such rather than as an AI failure.
+      console.error('Transaction categorisation/insights error:', aiError)
+      captureError(aiError, { route: ROUTE, eventType: 'transaction_processing_db_error', actor: user.id, extra: { uploadId } })
+      // Don't fail the whole process if this step fails
     }
 
     // Update upload status

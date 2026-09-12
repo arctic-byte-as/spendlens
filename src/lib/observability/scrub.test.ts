@@ -58,7 +58,12 @@ function buildFakeEvent(): Event {
       ],
     },
     request: {
-      headers: { authorization: FAKE_AUTH_TOKEN, cookie: FAKE_SESSION_COOKIE, 'user-agent': 'jest-test' },
+      headers: {
+        authorization: FAKE_AUTH_TOKEN,
+        cookie: FAKE_SESSION_COOKIE,
+        'x-forwarded-for': '198.51.100.7',
+        'user-agent': 'jest-test',
+      },
       cookies: { 'sb-access-token': 'abc.def.ghi' },
       data: { description: FAKE_DESCRIPTION, amount: FAKE_AMOUNT },
     },
@@ -79,6 +84,7 @@ describe('scrubEvent', () => {
     expect(payload).not.toContain(FAKE_ITEM_NAME)
     expect(payload).not.toContain('real.user@example.com')
     expect(payload).not.toContain('203.0.113.5')
+    expect(payload).not.toContain('198.51.100.7')
   })
 
   it('drops cookies entirely from the request payload', () => {
@@ -120,5 +126,24 @@ describe('scrubText', () => {
 
   it('leaves ordinary short text untouched', () => {
     expect(scrubText('Unexpected response type from Claude')).toBe('Unexpected response type from Claude')
+  })
+
+  it('redacts Postgres constraint-violation style key=value pairs, not just JSON quoting', () => {
+    const text = `duplicate key value violates unique constraint: Key (description)=(${FAKE_DESCRIPTION}) already exists`
+    const result = scrubText(text)
+    expect(result).not.toContain(FAKE_DESCRIPTION)
+    expect(result).toContain('(description)=([redacted])')
+  })
+
+  it('redacts the whole value even when it contains a backslash-escaped quote', () => {
+    const text = `bad response: {"description": "He said \\"hi\\" at the ${FAKE_MERCHANT} counter"}`
+    const result = scrubText(text)
+    expect(result).not.toContain(FAKE_MERCHANT)
+    expect(result).not.toContain('counter')
+  })
+
+  it('redacts whole-number amounts explicitly marked with a currency label', () => {
+    expect(scrubText('charged 150 kr for the order')).not.toContain('150')
+    expect(scrubText('charged NOK 150 for the order')).not.toContain('150')
   })
 })

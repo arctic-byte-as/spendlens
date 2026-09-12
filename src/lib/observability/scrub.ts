@@ -47,19 +47,34 @@ export function scrubText(text: string): string {
   let result = text
 
   // "merchant": "Some Store", category: 'GROCERIES', etc. — JSON/object-literal
-  // style key-value pairs for any deny-listed key, quoted with " or '.
+  // style key-value pairs for any deny-listed key, quoted with " or '. The value body allows an
+  // escaped-char alternative (\\.) before the not-the-closing-quote check, so a backslash-escaped
+  // quote inside the value doesn't end the match early and leak the remainder unredacted.
   const keyPattern = SENSITIVE_KEY_TERMS.join('|')
   const jsonKeyValue = new RegExp(
-    `(["'](?:[\\w-]*(?:${keyPattern})[\\w-]*)["']\\s*:\\s*)(["'])(?:(?!\\2).)*\\2`,
+    `(["'](?:[\\w-]*(?:${keyPattern})[\\w-]*)["']\\s*:\\s*)(["'])(?:\\\\.|(?!\\2).)*\\2`,
     'gi'
   )
   result = result.replace(jsonKeyValue, (_match, prefix: string, quote: string) => `${prefix}${quote}${REDACTED}${quote}`)
+
+  // Postgres constraint-violation style: Key (description)=(REMA 1000 OSLO weekly shop) already
+  // exists. Not JSON-quoted at all, so the pattern above never matches it.
+  const parenKeyValue = new RegExp(`\\((?:${keyPattern})\\)=\\([^)]*\\)`, 'gi')
+  result = result.replace(parenKeyValue, (match) => match.replace(/\(([^)]*)\)$/, `(${REDACTED})`))
 
   // Long digit runs — account numbers, card numbers, IBAN-ish sequences.
   result = result.replace(/\b\d{6,}\b/g, `[${REDACTED}-number]`)
 
   // Currency-shaped amounts, e.g. 1234.56 / 1,234.56 / 1234,56.
   result = result.replace(/\b\d+(?:[.,]\d{3})*[.,]\d{2}\b/g, `[${REDACTED}-amount]`)
+
+  // Whole-number amounts explicitly marked with a currency label (e.g. "150 kr", "NOK 150") —
+  // narrower than matching every bare integer (which would also redact ids, counts, timestamps),
+  // but still catches the common case of a whole-krone amount with no decimal point.
+  result = result.replace(
+    /\b(?:kr|NOK)\s?\d+(?:[.,]\d{3})*(?:[.,]\d{2})?\b|\b\d+(?:[.,]\d{3})*(?:[.,]\d{2})?\s?(?:kr|NOK)\b/gi,
+    `[${REDACTED}-amount]`
+  )
 
   return result
 }
@@ -80,7 +95,11 @@ function scrubDeep(value: unknown): unknown {
 function scrubHeaders(headers: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {}
   for (const [key, value] of Object.entries(headers)) {
-    out[key] = /^(authorization|cookie|set-cookie|x-api-key)$/i.test(key) ? REDACTED : value
+    // IP-revealing proxy headers are redacted here too — user.ip_address is dropped below
+    // specifically to keep IPs out of reports, so a request header can't smuggle the same data in.
+    out[key] = /^(authorization|cookie|set-cookie|x-api-key|x-forwarded-for|x-real-ip)$/i.test(key)
+      ? REDACTED
+      : value
   }
   return out
 }

@@ -52,4 +52,15 @@ describe('captureError', () => {
     expect(logged).toMatchObject({ actor: 'user-1', route: '/api/process', event_type: 'ai_call_failed', error: 'boom' })
     expect(typeof logged.timestamp).toBe('string')
   })
+
+  it('scrubs sensitive data out of the error message before it reaches console.error', () => {
+    // This console.error line is a separate sink from Sentry's beforeSend, so it needs its own
+    // scrubbing rather than relying on Sentry's pipeline to protect it.
+    const spy = jest.spyOn(console, 'error').mockImplementation(() => {})
+    const error = new Error('Failed to parse Claude response: {"merchant": "Big Box Groceries Ltd"}')
+    captureError(error, { route: '/api/process', eventType: 'ai_call_failed' })
+
+    const logged = JSON.parse(spy.mock.calls[0][0] as string)
+    expect(logged.error).not.toContain('Big Box Groceries Ltd')
+  })
 })

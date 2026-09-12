@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/nextjs'
+import { scrubText } from './scrub'
 
 /**
  * Minimal structured error-capture helper for Epic 5-A (application error
@@ -20,13 +21,16 @@ export interface CaptureErrorContext {
 }
 
 export function captureError(error: unknown, context: CaptureErrorContext): void {
+  // This console.error line bypasses Sentry's beforeSend scrubbing entirely (it's a separate
+  // sink), so the message gets the same scrubText() treatment here rather than going out raw.
+  const rawMessage = error instanceof Error ? error.message : String(error)
   console.error(
     JSON.stringify({
       actor: context.actor ?? 'anonymous',
       route: context.route,
       event_type: context.eventType,
       timestamp: new Date().toISOString(),
-      error: error instanceof Error ? error.message : String(error),
+      error: scrubText(rawMessage),
     })
   )
 
