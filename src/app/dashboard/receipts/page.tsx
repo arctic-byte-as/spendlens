@@ -12,6 +12,8 @@ import {
   getTopPurchasedItems,
 } from '@/lib/receipts/analysis'
 import { fetchAllReceipts, fetchAllReceiptItems } from '@/lib/receipts/fetchAll'
+import { formatCurrency } from '@/lib/transactions/table'
+import { panelTitle, actionButtonStyle, monthLabel } from './shared'
 
 type SearchParams = Record<string, string | string[] | undefined>
 
@@ -27,16 +29,6 @@ const GOOD_SAVINGS_RATE_THRESHOLD = 0.15
 function getSingle(value: string | string[] | undefined): string | undefined {
   if (Array.isArray(value)) return value[0]
   return value
-}
-
-function monthLabel(month: string): string {
-  return new Date(`${month}-01T00:00:00.000Z`)
-    .toLocaleDateString('nb-NO', { month: 'short', year: 'numeric' })
-    .toUpperCase()
-}
-
-function formatCurrency(amount: number, currency: string): string {
-  return `${Math.round(amount).toLocaleString('nb-NO')} ${currency}`
 }
 
 function formatPct(value: number): string {
@@ -122,25 +114,6 @@ export default async function ReceiptAnalysisPage({
 
   const maxChainSpend = Math.max(...chainMonthly.map(row => row.spend), 1)
   const maxVatSpend = Math.max(...vatMonthly.map(row => row.foodSpend + row.nonFoodSpend), 1)
-
-  const panelTitle: React.CSSProperties = {
-    fontFamily: 'Orbitron, sans-serif',
-    fontSize: '9px',
-    fontWeight: 700,
-    letterSpacing: '0.3em',
-    color: 'var(--muted)',
-    textTransform: 'uppercase',
-  }
-
-  const actionButtonStyle: React.CSSProperties = {
-    fontFamily: 'Orbitron, sans-serif',
-    fontSize: '9px',
-    letterSpacing: '0.2em',
-    padding: '10px 24px',
-    background: 'var(--prancing-horse)',
-    color: 'white',
-    textDecoration: 'none',
-  }
 
   if (receipts.length === 0) {
     return (

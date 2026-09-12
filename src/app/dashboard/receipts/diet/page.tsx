@@ -7,6 +7,7 @@ import { fetchAllReceipts, fetchAllReceiptItems } from '@/lib/receipts/fetchAll'
 import { DIET_CATEGORY_GROUPS, type DietCategoryGroup } from '@/lib/receipts/dietCategories'
 import { dietTrendInsights, type DietCategoryVerdict } from '@/lib/ai/insights'
 import { getFreshCachedInsights, writeInsightsCache } from '@/lib/receipts/insightsCache'
+import { panelTitle, actionButtonStyle, monthLabel } from '../shared'
 
 const SOURCE = 'diet_trend'
 
@@ -22,31 +23,6 @@ const VERDICT_COLOR: Record<DietCategoryVerdict['verdict'], string> = {
   improving: 'var(--positive)',
   worsening: 'var(--prancing-horse)',
   flat: 'var(--muted)',
-}
-
-const panelTitle: React.CSSProperties = {
-  fontFamily: 'Orbitron, sans-serif',
-  fontSize: '9px',
-  fontWeight: 700,
-  letterSpacing: '0.3em',
-  color: 'var(--muted)',
-  textTransform: 'uppercase',
-}
-
-const actionButtonStyle: React.CSSProperties = {
-  fontFamily: 'Orbitron, sans-serif',
-  fontSize: '9px',
-  letterSpacing: '0.2em',
-  padding: '10px 24px',
-  background: 'var(--prancing-horse)',
-  color: 'white',
-  textDecoration: 'none',
-}
-
-function monthLabel(month: string): string {
-  return new Date(`${month}-01T00:00:00.000Z`)
-    .toLocaleDateString('nb-NO', { month: 'short', year: 'numeric' })
-    .toUpperCase()
 }
 
 function formatPct(value: number): string {
