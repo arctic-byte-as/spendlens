@@ -7,6 +7,9 @@ import { categoriseTransactionBatches, type CategorisationResult } from '@/lib/a
 import { generateInsights } from '@/lib/ai/insights'
 import { evaluateBillingGate } from '@/lib/billing/gate'
 import { FREE_TIER_TRANSACTION_LIMIT } from '@/lib/billing/constants'
+import { captureError } from '@/lib/observability/logger'
+
+const ROUTE = '/api/process/[uploadId]'
 
 const TRANSACTION_INSERT_BATCH = 500
 
@@ -219,8 +222,14 @@ export async function POST(
         throw new Error(`Failed to insert insights: ${insightInsertError.message}`)
       }
     } catch (aiError) {
-      console.error('AI categorisation error:', aiError)
-      // Don't fail the whole process if AI fails
+      // Despite the block's name, nothing genuinely AI-related can throw here:
+      // categoriseTransactionBatches() and generateInsights() both catch their own failures
+      // internally (yielding a failed/OTHER row or an empty tip list respectively) rather than
+      // throwing. Every exception reaching this catch is actually the transaction-category or
+      // insights DB write failing, so it's tagged as such rather than as an AI failure.
+      console.error('Transaction categorisation/insights error:', aiError)
+      captureError(aiError, { route: ROUTE, eventType: 'transaction_processing_db_error', actor: user.id, extra: { uploadId } })
+      // Don't fail the whole process if this step fails
     }
 
     // Update upload status
@@ -237,6 +246,7 @@ export async function POST(
     })
   } catch (error) {
     console.error('Processing error:', error)
+    captureError(error, { route: ROUTE, eventType: 'unhandled_exception', actor: user.id, extra: { uploadId } })
     await supabase.from('uploads').update({ status: 'error' }).eq('id', uploadId)
     return NextResponse.json({ error: 'Processing failed' }, { status: 500 })
   }

@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { captureError } from '@/lib/observability/logger'
 import { ANTHROPIC_MODEL, cachedSystemPrompt } from './model'
 import { wrapUntrusted, UNTRUSTED_DATA_INSTRUCTIONS } from './promptSafety'
 import { computeDietCategoryVerdicts, DIET_CATEGORY_TARGETS, type DietCategoryTarget, type DietVerdict } from '@/lib/receipts/dietTargets'
@@ -87,6 +88,9 @@ No other text, no markdown. Just the JSON array.`
 
   const parsed = extractJsonArray(message, 'insights')
   if (!parsed) {
+    // extractJsonArray() already logged the parse failure and swallows the actual error, so
+    // there's nothing case-specific to pass captureError beyond a fixed, non-leaking label.
+    captureError(new Error('insights_parse_failed'), { route: 'lib/ai/generateInsights', eventType: 'ai_call_failed' })
     logSecurityEvent({
       eventType: 'ai_validation_failure',
       route: 'lib/ai/insights',
